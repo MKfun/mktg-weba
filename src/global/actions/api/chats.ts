@@ -21,6 +21,7 @@ import {
   CHAT_LIST_LOAD_SLICE,
   DEBUG,
   GLOBAL_STATE_CACHE_ARCHIVED_CHAT_LIST_LIMIT,
+  GLOBAL_SUGGESTED_CHANNELS_ID,
   RE_TG_LINK,
   SAVED_FOLDER_ID,
   SERVICE_NOTIFICATIONS_USER_ID,
@@ -30,6 +31,7 @@ import {
   TOPICS_SLICE,
   TOPICS_SLICE_SECOND_LOAD,
 } from '../../../config';
+import { copyTextToClipboard } from '../../../util/clipboard';
 import { formatShareText, parseChooseParameter, processDeepLink } from '../../../util/deeplink';
 import { isDeepLink } from '../../../util/deepLinkParser';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
@@ -104,6 +106,7 @@ import {
   selectIsChatPinned,
   selectIsChatWithSelf,
   selectLastServiceNotification,
+  selectSimilarChannelIds,
   selectStickerSet,
   selectSupportChat,
   selectTabState,
@@ -2614,25 +2617,34 @@ addActionHandler('setViewForumAsMessages', (global, actions, payload): ActionRet
   void callApi('setViewForumAsMessages', { chat, isEnabled });
 });
 
-addActionHandler('fetchChannelRecommendations', async (global, actions, payload): Promise<void> => {
+addActionHandler('loadChannelRecommendations', async (global, actions, payload): Promise<void> => {
   const { chatId } = payload;
-  const chat = selectChat(global, chatId);
+  const chat = chatId ? selectChat(global, chatId) : undefined;
 
-  if (!chat) {
+  if (chatId && !chat) {
     return;
   }
 
-  const { similarChannels, count } = await callApi('fetchChannelRecommendations', {
+  if (!chatId) {
+    const similarChannelIds = selectSimilarChannelIds(global, GLOBAL_SUGGESTED_CHANNELS_ID);
+    if (similarChannelIds) return; // Already cached
+  }
+
+  const result = await callApi('fetchChannelRecommendations', {
     chat,
-  }) || {};
+  });
 
-  if (!similarChannels) {
+  if (!result) {
     return;
   }
+
+  const { similarChannels, count } = result;
+
+  const chatsById = buildCollectionByKey(similarChannels, 'id');
 
   global = getGlobal();
-  global = addChats(global, buildCollectionByKey(similarChannels, 'id'));
-  global = addSimilarChannels(global, chatId, similarChannels.map((channel) => channel.id), count);
+  global = addChats(global, chatsById);
+  global = addSimilarChannels(global, chatId || GLOBAL_SUGGESTED_CHANNELS_ID, Object.keys(chatsById), count);
   setGlobal(global);
 });
 
@@ -2671,6 +2683,38 @@ addActionHandler('resolveBusinessChatLink', async (global, actions, payload): Pr
     text: chatLink.text,
     tabId,
   });
+});
+
+addActionHandler('requestCollectibleInfo', async (global, actions, payload): Promise<void> => {
+  const {
+    type, collectible, peerId, tabId = getCurrentTabId(),
+  } = payload;
+
+  let inputCollectible;
+  if (type === 'phone') {
+    inputCollectible = { phone: collectible };
+  }
+  if (type === 'username') {
+    inputCollectible = { username: collectible };
+  }
+  if (!inputCollectible) return;
+
+  const result = await callApi('fetchCollectionInfo', inputCollectible);
+  if (!result) {
+    copyTextToClipboard(collectible);
+    return;
+  }
+
+  global = getGlobal();
+  global = updateTabState(global, {
+    collectibleInfoModal: {
+      ...result,
+      type,
+      collectible,
+      peerId,
+    },
+  }, tabId);
+  setGlobal(global);
 });
 
 async function loadChats(
@@ -2995,11 +3039,11 @@ async function openChatByUsername<T extends GlobalState>(
   if (startAttach !== undefined && !attach) {
     const bot = await getAttachBotOrNotify(global, actions, username, tabId);
 
-    if (!currentChat || !bot) return;
+    if (!bot) return;
 
     actions.callAttachBot({
       bot,
-      chatId: currentChat.id,
+      chatId: currentChat?.id || bot.id,
       startParam: startAttach,
       tabId,
     });

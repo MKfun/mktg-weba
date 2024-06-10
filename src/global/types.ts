@@ -3,6 +3,7 @@ import type {
   ApiAttachBot,
   ApiAttachment,
   ApiAvailableReaction,
+  ApiBoost,
   ApiBoostsStatus,
   ApiChannelStatistics,
   ApiChat,
@@ -15,6 +16,7 @@ import type {
   ApiChatReactions,
   ApiChatType,
   ApiCheckedGiftCode,
+  ApiCollectionInfo,
   ApiConfig,
   ApiContact,
   ApiCountry,
@@ -532,6 +534,19 @@ export type TabState = {
   openedStickerSetShortName?: string;
   openedCustomEmojiSetIds?: string[];
 
+  reportAdModal?: {
+    chatId: string;
+    randomId: string;
+    sections: {
+      title: string;
+      subtitle?: string;
+      options: {
+        text: string;
+        option: string;
+      }[];
+    }[];
+  };
+
   activeDownloads: {
     byChatId: {
       [chatId: string]: {
@@ -694,12 +709,17 @@ export type TabState = {
 
   boostStatistics?: {
     chatId: string;
-    boosters?: Record<string, number>;
-    boosterIds?: string[];
     boostStatus?: ApiBoostsStatus;
     isLoadingBoosters?: boolean;
     nextOffset?: string;
-    count?: number;
+    boosts?: {
+      count: number;
+      list: ApiBoost[];
+    };
+    giftedBoosts?: {
+      count: number;
+      list: ApiBoost[];
+    };
   };
 
   giftCodeModal?: {
@@ -718,6 +738,12 @@ export type TabState = {
 
   oneTimeMediaModal?: {
     message: ApiMessage;
+  };
+
+  collectibleInfoModal?: ApiCollectionInfo & {
+    peerId: string;
+    type: 'phone' | 'username';
+    collectible: string;
   };
 };
 
@@ -1212,6 +1238,7 @@ export interface ActionPayloads {
     privacyKey: ApiPrivacyKey;
     isAllowList: boolean;
     updatedIds: string[];
+    isPremiumAllowed?: true;
   };
   loadNotificationExceptions: undefined;
   setThemeSettings: { theme: ThemeKey } & Partial<IThemeSettings>;
@@ -1427,6 +1454,7 @@ export interface ActionPayloads {
   } & WithTabId;
   markMessagesRead: {
     messageIds: number[];
+    shouldFetchUnreadReactions?: boolean;
   } & WithTabId;
   loadMessage: {
     chatId: string;
@@ -1459,6 +1487,14 @@ export interface ActionPayloads {
   clickSponsoredMessage: {
     chatId: string;
   };
+  reportSponsoredMessage: {
+    chatId: string;
+    randomId: string;
+    option?: string;
+  } & WithTabId;
+  openPreviousReportAdModal: WithTabId | undefined;
+  closeReportAdModal: WithTabId | undefined;
+  hideSponsoredMessages: WithTabId | undefined;
   loadSendAs: {
     chatId: string;
   };
@@ -1526,7 +1562,7 @@ export interface ActionPayloads {
     attach?: string;
     startApp?: string;
     text?: string;
-    originalParts?: string[];
+    originalParts?: (string | undefined)[];
   } & WithTabId;
   processBoostParameters: {
     usernameOrId: string;
@@ -1897,8 +1933,8 @@ export interface ActionPayloads {
   fetchChat: {
     chatId: string;
   };
-  fetchChannelRecommendations: {
-    chatId: string;
+  loadChannelRecommendations: {
+    chatId?: string;
   };
   toggleChannelRecommendations: {
     chatId: string;
@@ -2232,7 +2268,7 @@ export interface ActionPayloads {
   loadPeerStories: {
     peerId: string;
   };
-  loadPeerPinnedStories: {
+  loadPeerProfileStories: {
     peerId: string;
     offsetId?: number;
   } & WithTabId;
@@ -2255,11 +2291,15 @@ export interface ActionPayloads {
     peerId: string;
     storyId: number;
   } & WithTabId;
-  toggleStoryPinned: {
+  toggleStoryInProfile: {
     peerId: string;
     storyId: number;
-    isPinned?: boolean;
-  } & WithTabId;
+    isInProfile?: boolean;
+  };
+  toggleStoryPinnedToTop: {
+    peerId: string;
+    storyId: number;
+  };
   toggleStoryRibbon: {
     isShown: boolean;
     isArchived?: boolean;
@@ -2356,7 +2396,7 @@ export interface ActionPayloads {
     chatId: string;
   } & WithTabId;
   closeBoostStatistics: WithTabId | undefined;
-  loadMoreBoosters: WithTabId | undefined;
+  loadMoreBoosters: { isGifts?: boolean } & WithTabId | undefined;
   applyBoost: {
     slots: number[];
     chatId: string;
@@ -2501,6 +2541,10 @@ export interface ActionPayloads {
     chatId: string;
     topicId?: number;
   } & WithTabId;
+  openChatOrTopicWithReplyInDraft: {
+    chatId: string;
+    topicId?: number;
+  } & WithTabId;
   forwardMessages: {
     isSilent?: boolean;
     scheduledAt?: number;
@@ -2512,7 +2556,7 @@ export interface ActionPayloads {
     noCaptions: boolean;
   } & WithTabId;
   exitForwardMode: WithTabId | undefined;
-  changeForwardRecipient: WithTabId | undefined;
+  changeRecipient: WithTabId | undefined;
   forwardToSavedMessages: WithTabId | undefined;
   forwardStory: {
     toChatId: string;
@@ -2714,9 +2758,7 @@ export interface ActionPayloads {
     buttonText: string;
   };
 
-  loadAttachBots: {
-    hash?: string;
-  } | undefined;
+  loadAttachBots: undefined;
 
   toggleAttachBot: {
     botId: string;
@@ -2839,6 +2881,13 @@ export interface ActionPayloads {
 
   openOneTimeMediaModal: TabState['oneTimeMediaModal'] & WithTabId;
   closeOneTimeMediaModal: WithTabId | undefined;
+
+  requestCollectibleInfo: {
+    peerId: string;
+    type : 'phone' | 'username';
+    collectible: string;
+  } & WithTabId;
+  closeCollectibleInfoModal: WithTabId | undefined;
 
   // Calls
   joinGroupCall: {
@@ -2989,8 +3038,8 @@ export interface ActionPayloads {
     forMultipleUsers?: boolean;
     forUserIds?: string[];
   } & WithTabId) | undefined;
-
   closeGiftPremiumModal: WithTabId | undefined;
+
   setEmojiStatus: {
     emojiStatus: ApiSticker;
     expires?: number;

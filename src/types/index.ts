@@ -8,6 +8,7 @@ import type {
   ApiExportedInvite,
   ApiLanguage, ApiMessage, ApiReaction, ApiStickerSet, ApiUser,
 } from '../api/types';
+import type { IconName } from './icons';
 
 export type TextPart = TeactNode;
 
@@ -276,6 +277,7 @@ export enum LeftColumnContent {
 
 export enum GlobalSearchContent {
   ChatList,
+  ChannelList,
   Media,
   Links,
   Files,
@@ -456,3 +458,16 @@ export type InlineBotSettings = {
   switchWebview?: ApiBotInlineSwitchWebview;
   cacheTime: number;
 };
+
+export type CustomPeerType = 'premium' | 'toBeDistributed';
+
+export interface CustomPeer {
+  type: CustomPeerType;
+  isCustomPeer: true;
+  titleKey: string;
+  subtitleKey?: string;
+  avatarIcon: IconName;
+  isAvatarSquare?: boolean;
+  peerColorId?: number;
+  withPremiumGradient?: boolean;
+}

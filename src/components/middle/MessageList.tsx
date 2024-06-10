@@ -52,6 +52,7 @@ import {
   selectScrollOffset,
   selectTabState,
   selectThreadInfo,
+  selectUserFullInfo,
 } from '../../global/selectors';
 import animateScroll, { isAnimatingScroll, restartCurrentScrollAnimation } from '../../util/animateScroll';
 import buildClassName from '../../util/buildClassName';
@@ -101,7 +102,6 @@ type OwnProps = {
 };
 
 type StateProps = {
-  isCurrentUserPremium?: boolean;
   isChatLoaded?: boolean;
   isChannelChat?: boolean;
   isGroupChat?: boolean;
@@ -127,6 +127,7 @@ type StateProps = {
   isEmptyThread?: boolean;
   isForum?: boolean;
   currentUserId: string;
+  areAdsEnabled?: boolean;
 };
 
 const MESSAGE_REACTIONS_POLLING_INTERVAL = 20 * 1000;
@@ -150,7 +151,6 @@ const MessageList: FC<OwnProps & StateProps> = ({
   hasTools,
   onScrollDownToggle,
   onNotchToggle,
-  isCurrentUserPremium,
   isChatLoaded,
   isForum,
   isChannelChat,
@@ -184,6 +184,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
   getForceNextPinnedInHeader,
   onPinnedIntersectionChange,
   isContactRequirePremium,
+  areAdsEnabled,
 }) => {
   const {
     loadViewportMessages, setScrollOffset, loadSponsoredMessages, loadMessageReactions, copyMessagesByIds,
@@ -230,10 +231,10 @@ const MessageList: FC<OwnProps & StateProps> = ({
   }, [firstUnreadId]);
 
   useEffect(() => {
-    if (!isCurrentUserPremium && isChannelChat && isSynced && isReady) {
+    if (areAdsEnabled && isChannelChat && isSynced && isReady) {
       loadSponsoredMessages({ chatId });
     }
-  }, [isCurrentUserPremium, chatId, isSynced, isReady, isChannelChat]);
+  }, [chatId, isSynced, isReady, isChannelChat, areAdsEnabled]);
 
   // Updated only once when messages are loaded (as we want the unread divider to keep its position)
   useSyncEffect(() => {
@@ -380,7 +381,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
 
     const container = containerRef.current!;
 
-    if (!messageIds || (
+    if (!messageIds || messageIds.length === 1 || (
       messageIds.length < MESSAGE_LIST_SLICE / 2
       && (container.firstElementChild as HTMLDivElement).clientHeight <= container.offsetHeight
     )) {
@@ -567,6 +568,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
   const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat || isAnonymousForwards);
   const noAvatars = Boolean(!withUsers || isChannelChat);
   const shouldRenderGreeting = isUserId(chatId) && !isChatWithSelf && !isBot && !isAnonymousForwards
+    && type === 'thread'
     && (
       (
         !messageGroups && !lastMessage && messageIds
@@ -632,7 +634,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
         />
       ) : hasMessages ? (
         <MessageListContent
-          isCurrentUserPremium={isCurrentUserPremium}
+          areAdsEnabled={areAdsEnabled}
           chatId={chatId}
           isComments={isComments}
           isChannelChat={isChannelChat}
@@ -704,8 +706,11 @@ export default memo(withGlobal<OwnProps>(
     const chatFullInfo = !isUserId(chatId) ? selectChatFullInfo(global, chatId) : undefined;
     const isEmptyThread = !selectThreadInfo(global, chatId, threadId)?.messagesCount;
 
+    const isCurrentUserPremium = selectIsCurrentUserPremium(global);
+    const areAdsEnabled = !isCurrentUserPremium || selectUserFullInfo(global, currentUserId)?.areAdsEnabled;
+
     return {
-      isCurrentUserPremium: selectIsCurrentUserPremium(global),
+      areAdsEnabled,
       isChatLoaded: true,
       isRestricted,
       restrictionReason,

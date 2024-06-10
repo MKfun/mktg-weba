@@ -419,7 +419,17 @@ export function deleteChatScheduledMessages<T extends GlobalState>(
     });
   }
 
-  global = updateScheduledMessages(global, chatId, newById);
+  global = {
+    ...global,
+    scheduledMessages: {
+      byChatId: {
+        ...global.scheduledMessages.byChatId,
+        [chatId]: {
+          byId: newById,
+        },
+      },
+    },
+  };
 
   return global;
 }
@@ -657,6 +667,23 @@ export function updateSponsoredMessage<T extends GlobalState>(
         ...global.messages.sponsoredByChatId,
         [chatId]: message,
       },
+    },
+  };
+}
+
+export function deleteSponsoredMessage<T extends GlobalState>(
+  global: T, chatId: string,
+): T {
+  const byChatId = global.messages.sponsoredByChatId;
+  if (!byChatId[chatId]) {
+    return global;
+  }
+
+  return {
+    ...global,
+    messages: {
+      ...global.messages,
+      sponsoredByChatId: omit(byChatId, [chatId]),
     },
   };
 }

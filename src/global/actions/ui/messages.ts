@@ -515,7 +515,7 @@ addActionHandler('openForwardMenu', (global, actions, payload): ActionReturnType
   }, tabId);
 });
 
-addActionHandler('changeForwardRecipient', (global, actions, payload): ActionReturnType => {
+addActionHandler('changeRecipient', (global, actions, payload): ActionReturnType => {
   const { tabId = getCurrentTabId() } = payload || {};
   return updateTabState(global, {
     forwardMessages: {
@@ -861,6 +861,33 @@ addActionHandler('closeOneTimeMediaModal', (global, actions, payload): ActionRet
     oneTimeMediaModal: undefined,
   }, tabId);
   setGlobal(global);
+});
+
+addActionHandler('closeReportAdModal', (global, actions, payload): ActionReturnType => {
+  const { tabId = getCurrentTabId() } = payload || {};
+  return updateTabState(global, {
+    reportAdModal: undefined,
+  }, tabId);
+});
+
+addActionHandler('openPreviousReportAdModal', (global, actions, payload): ActionReturnType => {
+  const { tabId = getCurrentTabId() } = payload || {};
+  const reportAdModal = selectTabState(global, tabId).reportAdModal;
+  if (!reportAdModal) {
+    return undefined;
+  }
+
+  if (reportAdModal.sections.length === 1) {
+    actions.closeReportAdModal({ tabId });
+    return undefined;
+  }
+
+  return updateTabState(global, {
+    reportAdModal: {
+      ...reportAdModal,
+      sections: reportAdModal.sections.slice(0, -1),
+    },
+  }, tabId);
 });
 
 function copyTextForMessages(global: GlobalState, chatId: string, messageIds: number[]) {
