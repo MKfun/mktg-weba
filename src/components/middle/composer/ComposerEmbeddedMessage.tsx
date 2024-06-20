@@ -7,13 +7,14 @@ import { getActions, withGlobal } from '../../../global';
 import type {
   ApiChat, ApiInputMessageReplyInfo, ApiMessage, ApiPeer,
 } from '../../../api/types';
+import type { MessageListType } from '../../../global/types';
+import type { ThreadId } from '../../../types/index';
 
 import { stripCustomEmoji } from '../../../global/helpers';
 import {
   selectCanAnimateInterface,
   selectChat,
   selectChatMessage,
-  selectCurrentMessageList,
   selectDraft,
   selectEditingId,
   selectEditingMessage,
@@ -31,14 +32,13 @@ import { getPeerColorClass } from '../../common/helpers/peerColor';
 
 import useContextMenuHandlers from '../../../hooks/useContextMenuHandlers';
 import useCurrentOrPrev from '../../../hooks/useCurrentOrPrev';
-import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useMenuPosition from '../../../hooks/useMenuPosition';
+import useOldLang from '../../../hooks/useOldLang';
 import useShowTransition from '../../../hooks/useShowTransition';
-import useAsyncRendering from '../../right/hooks/useAsyncRendering';
 
 import { ClosableEmbeddedMessage } from '../../common/embedded/EmbeddedMessage';
-import Icon from '../../common/Icon';
+import Icon from '../../common/icons/Icon';
 import Button from '../../ui/Button';
 import Menu from '../../ui/Menu';
 import MenuItem from '../../ui/MenuItem';
@@ -60,16 +60,19 @@ type StateProps = {
   isContextMenuDisabled?: boolean;
   isReplyToDiscussion?: boolean;
   isInChangingRecipientMode?: boolean;
-  isChangingChats?: boolean;
+  shouldPreventComposerAnimation?: boolean;
   senderChat?: ApiChat;
 };
 
 type OwnProps = {
   onClear?: () => void;
   shouldForceShowEditing?: boolean;
+  chatId: string;
+  threadId: ThreadId;
+  messageListType: MessageListType;
 };
 
-const FORWARD_RENDERING_DELAY = 300;
+const CLOSE_DURATION = 350;
 
 const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
   replyInfo,
@@ -87,7 +90,7 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
   isReplyToDiscussion,
   onClear,
   isInChangingRecipientMode,
-  isChangingChats,
+  shouldPreventComposerAnimation,
   senderChat,
 }) => {
   const {
@@ -99,47 +102,49 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
     setForwardNoAuthors,
     setForwardNoCaptions,
     exitForwardMode,
+    setShouldPreventComposerAnimation,
   } = getActions();
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
-  const lang = useLang();
+  const lang = useOldLang();
 
   const isReplyToTopicStart = message?.content.action?.type === 'topicCreate';
   const isShowingReply = replyInfo && !shouldForceShowEditing;
   const isReplyWithQuote = Boolean(replyInfo?.quoteText);
 
   const isForwarding = Boolean(forwardedMessagesCount);
-  const isShown = Boolean(
-    ((replyInfo || editingId) && message && !isInChangingRecipientMode)
-    || (sender && forwardedMessagesCount),
-  );
-  const canAnimate = useAsyncRendering(
-    [isShown, isForwarding],
-    isShown && isChangingChats ? FORWARD_RENDERING_DELAY : undefined,
-  );
+
+  const isShown = (() => {
+    if (isInChangingRecipientMode) return false;
+    if (message && (replyInfo || editingId)) return true;
+    if (sender && isForwarding) return true;
+    return false;
+  })();
 
   const {
     shouldRender, transitionClassNames,
   } = useShowTransition(
-    canAnimate && isShown && !isReplyToTopicStart && !isReplyToDiscussion,
+    isShown && !isReplyToTopicStart && !isReplyToDiscussion,
     undefined,
     !shouldAnimate,
     undefined,
+    !shouldAnimate,
+    CLOSE_DURATION,
     !shouldAnimate,
   );
   useEffect(() => {
-    if (canAnimate && replyInfo?.isShowingDelayNeeded) {
-      updateDraftReplyInfo({ isShowingDelayNeeded: false });
+    if (shouldPreventComposerAnimation) {
+      setShouldPreventComposerAnimation({ shouldPreventComposerAnimation: false });
     }
   });
 
   const clearEmbedded = useLastCallback(() => {
-    if (replyInfo && !shouldForceShowEditing) {
-      resetDraftReplyInfo();
-    } else if (editingId) {
+    if (editingId) {
       setEditingId({ messageId: undefined });
     } else if (forwardedMessagesCount) {
       exitForwardMode();
+    } else if (replyInfo && !shouldForceShowEditing) {
+      resetDraftReplyInfo();
     }
     onClear?.();
   });
@@ -205,14 +210,14 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
   );
 
   const leftIcon = useMemo(() => {
-    if (isShowingReply) {
-      return 'reply';
-    }
     if (editingId) {
       return 'edit';
     }
     if (isForwarding) {
       return 'forward';
+    }
+    if (isShowingReply) {
+      return 'reply';
     }
 
     return undefined;
@@ -370,22 +375,20 @@ const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
 };
 
 export default memo(withGlobal<OwnProps>(
-  (global, { shouldForceShowEditing }): StateProps => {
-    const { chatId, threadId, type: messageListType } = selectCurrentMessageList(global) || {};
-    if (!chatId || !threadId || !messageListType) {
-      return {};
-    }
-
+  (global, {
+    shouldForceShowEditing, chatId, threadId, messageListType,
+  }): StateProps => {
     const {
       forwardMessages: {
         fromChatId, toChatId, messageIds: forwardMessageIds, noAuthors, noCaptions, isModalShown,
       },
+      shouldPreventComposerAnimation,
     } = selectTabState(global);
 
     const editingId = messageListType === 'scheduled'
       ? selectEditingScheduledId(global, chatId)
       : selectEditingId(global, chatId, threadId);
-    const shouldAnimate = selectCanAnimateInterface(global);
+    const shouldAnimate = selectCanAnimateInterface(global) && !shouldPreventComposerAnimation;
     const isForwarding = toChatId === chatId;
     const forwardedMessages = forwardMessageIds?.map((id) => selectChatMessage(global, fromChatId!, id)!);
 
@@ -394,27 +397,19 @@ export default memo(withGlobal<OwnProps>(
     const replyToPeerId = replyInfo?.replyToPeerId;
     const senderChat = replyToPeerId ? selectChat(global, replyToPeerId) : undefined;
 
-    const isChangingChats = isForwarding || replyInfo?.isShowingDelayNeeded;
     let message: ApiMessage | undefined;
-    if (replyInfo && !shouldForceShowEditing) {
-      message = selectChatMessage(global, replyInfo.replyToPeerId || chatId, replyInfo.replyToMsgId);
-    } else if (editingId) {
+    if (editingId) {
       message = selectEditingMessage(global, chatId, threadId, messageListType);
     } else if (isForwarding && forwardMessageIds!.length === 1) {
       message = forwardedMessages?.[0];
+    } else if (replyInfo && !shouldForceShowEditing) {
+      message = selectChatMessage(global, replyInfo.replyToPeerId || chatId, replyInfo.replyToMsgId);
     }
 
     let sender: ApiPeer | undefined;
-    if (replyInfo && message && !shouldForceShowEditing) {
-      const { forwardInfo } = message;
-      const isChatWithSelf = selectIsChatWithSelf(global, chatId);
-      if (forwardInfo && (forwardInfo.isChannelPost || isChatWithSelf)) {
-        sender = selectForwardedSender(global, message);
-      }
 
-      if (!sender && (!forwardInfo?.hiddenUserName || Boolean(replyInfo.quoteText))) {
-        sender = selectSender(global, message);
-      }
+    if (editingId && message) {
+      sender = selectSender(global, message);
     } else if (isForwarding) {
       if (message) {
         sender = selectForwardedSender(global, message);
@@ -425,8 +420,16 @@ export default memo(withGlobal<OwnProps>(
       if (!sender) {
         sender = selectPeer(global, fromChatId!);
       }
-    } else if (editingId && message) {
-      sender = selectSender(global, message);
+    } else if (replyInfo && message && !shouldForceShowEditing) {
+      const { forwardInfo } = message;
+      const isChatWithSelf = selectIsChatWithSelf(global, chatId);
+      if (forwardInfo && (forwardInfo.isChannelPost || isChatWithSelf)) {
+        sender = selectForwardedSender(global, message);
+      }
+
+      if (!sender && (!forwardInfo?.hiddenUserName || Boolean(replyInfo.quoteText))) {
+        sender = selectSender(global, message);
+      }
     }
 
     const forwardsHaveCaptions = forwardedMessages?.some((forward) => (
@@ -452,7 +455,7 @@ export default memo(withGlobal<OwnProps>(
       isContextMenuDisabled,
       isReplyToDiscussion,
       isInChangingRecipientMode: isModalShown,
-      isChangingChats,
+      shouldPreventComposerAnimation,
       senderChat,
     };
   },

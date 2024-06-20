@@ -4,15 +4,15 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import buildClassName from '../../util/buildClassName';
 import renderText from './helpers/renderText';
 
+import useSelectorSignal from '../../hooks/data/useSelectorSignal';
 import useDerivedState from '../../hooks/useDerivedState';
-import useLang from '../../hooks/useLang';
-import useSelectorSignal from '../../hooks/useSelectorSignal';
+import useOldLang from '../../hooks/useOldLang';
 
 import Button from '../ui/Button';
 import ListItem from '../ui/ListItem';
 import Modal from '../ui/Modal';
 import Separator from '../ui/Separator';
-import Icon from './Icon';
+import Icon from './icons/Icon';
 import SafeLink from './SafeLink';
 
 import styles from './AboutAdsModal.module.scss';
@@ -28,7 +28,7 @@ const AboutAdsModal: FC<OwnProps> = ({
   isRevenueSharing,
   onClose,
 }) => {
-  const lang = useLang();
+  const lang = useOldLang();
 
   const minLevelSignal = useSelectorSignal((global) => global.appConfig?.channelRestrictAdsLevelMin);
   const minLevelToRestrictAds = useDerivedState(minLevelSignal);

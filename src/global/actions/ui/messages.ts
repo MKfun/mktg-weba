@@ -15,15 +15,16 @@ import {
 import { copyHtmlToClipboard } from '../../../util/clipboard';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { compact, findLast } from '../../../util/iteratees';
-import * as langProvider from '../../../util/langProvider';
-import { translate } from '../../../util/langProvider';
+import * as langProvider from '../../../util/oldLangProvider';
+import { oldTranslate } from '../../../util/oldLangProvider';
 import parseHtmlAsFormattedText from '../../../util/parseHtmlAsFormattedText';
 import { getServerTime } from '../../../util/serverTime';
 import { IS_TOUCH_ENV } from '../../../util/windowEnvironment';
 import versionNotification from '../../../versionNotification.txt';
 import {
-  getIsSavedDialog, getMessageSummaryText, getSenderTitle, isChatChannel, isJoinedChannelMessage,
+  getIsSavedDialog, getSenderTitle, isChatChannel, isJoinedChannelMessage,
 } from '../../helpers';
+import { getMessageSummaryText } from '../../helpers/messageSummary';
 import { renderMessageSummaryHtml } from '../../helpers/renderMessageSummaryHtml';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -162,7 +163,9 @@ addActionHandler('replyToNextMessage', (global, actions, payload): ActionReturnT
       ? Number(chatMessageKeys[newIndex])
       : undefined;
   }
-  actions.updateDraftReplyInfo({ replyToMsgId: messageId, tabId });
+  actions.updateDraftReplyInfo({
+    replyToMsgId: messageId, replyToPeerId: undefined, quoteText: undefined, tabId,
+  });
   actions.focusMessage({
     chatId,
     threadId,
@@ -405,7 +408,7 @@ addActionHandler('focusMessage', (global, actions, payload): ActionReturnType =>
 
   const chat = selectChat(global, chatId);
   if (!chat) {
-    actions.showNotification({ message: translate('Conversation.ErrorInaccessibleMessage'), tabId });
+    actions.showNotification({ message: oldTranslate('Conversation.ErrorInaccessibleMessage'), tabId });
     return undefined;
   }
 
@@ -494,6 +497,13 @@ addActionHandler('focusMessage', (global, actions, payload): ActionReturnType =>
     shouldForceRender: true,
   });
   return undefined;
+});
+
+addActionHandler('setShouldPreventComposerAnimation', (global, actions, payload): ActionReturnType => {
+  const { shouldPreventComposerAnimation, tabId = getCurrentTabId() } = payload;
+  return updateTabState(global, {
+    shouldPreventComposerAnimation,
+  }, tabId);
 });
 
 addActionHandler('openForwardMenu', (global, actions, payload): ActionReturnType => {
@@ -892,7 +902,7 @@ addActionHandler('openPreviousReportAdModal', (global, actions, payload): Action
 
 function copyTextForMessages(global: GlobalState, chatId: string, messageIds: number[]) {
   const { type: messageListType, threadId } = selectCurrentMessageList(global) || {};
-  const lang = langProvider.translate;
+  const lang = langProvider.oldTranslate;
 
   const chat = selectChat(global, chatId);
 

@@ -25,14 +25,14 @@ import renderText from '../../common/helpers/renderText';
 import useInterval from '../../../hooks/schedulers/useInterval';
 import useAppLayout from '../../../hooks/useAppLayout';
 import useFlag from '../../../hooks/useFlag';
-import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
+import useOldLang from '../../../hooks/useOldLang';
 import usePrevious from '../../../hooks/usePrevious';
 import useSyncEffect from '../../../hooks/useSyncEffect';
 import usePopupLimit from './hooks/usePopupLimit';
 import useWebAppFrame from './hooks/useWebAppFrame';
 
-import Icon from '../../common/Icon';
+import Icon from '../../common/icons/Icon';
 import Button from '../../ui/Button';
 import ConfirmDialog from '../../ui/ConfirmDialog';
 import DropdownMenu from '../../ui/DropdownMenu';
@@ -138,7 +138,7 @@ const WebAppModal: FC<OwnProps & StateProps> = ({
   // eslint-disable-next-line no-null/no-null
   const frameRef = useRef<HTMLIFrameElement>(null);
 
-  const lang = useLang();
+  const lang = useOldLang();
   const {
     url, buttonText, queryId, replyInfo,
   } = modal || {};
@@ -700,13 +700,14 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectCurrentChat(global);
     const theme = selectTheme(global);
     const { isPaymentModalOpen, status } = selectTabState(global).payment;
+    const { isStarPaymentModalOpen } = selectTabState(global);
 
     return {
       attachBot,
       bot,
       chat,
       theme,
-      isPaymentModalOpen,
+      isPaymentModalOpen: isPaymentModalOpen || isStarPaymentModalOpen,
       paymentStatus: status,
     };
   },

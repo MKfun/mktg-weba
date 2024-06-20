@@ -60,6 +60,8 @@ import type {
   ApiSession,
   ApiSessionData,
   ApiSponsoredMessage,
+  ApiStarsTransaction,
+  ApiStarTopupOption,
   ApiStealthMode,
   ApiSticker,
   ApiStickerSet,
@@ -92,6 +94,7 @@ import type {
   ApiPrivacySettings,
   AudioOrigin,
   ChatCreationProgress,
+  ChatMediaSearchParams,
   EmojiKeywords,
   FocusDirection,
   GlobalSearchContent,
@@ -149,6 +152,12 @@ export type IDimensions = {
 };
 
 export type ApiPaymentStatus = 'paid' | 'failed' | 'pending' | 'cancelled';
+
+export type StarsTransactionType = 'all' | 'inbound' | 'outbound';
+export type StarsTransactionHistory = Record<StarsTransactionType, {
+  transactions: ApiStarsTransaction[];
+  nextOffset?: string;
+} | undefined>;
 
 export type ConfettiStyle = 'poppers' | 'top-down';
 
@@ -224,11 +233,22 @@ export type ChatRequestedTranslations = {
   manualMessages?: Record<number, string>;
 };
 
+type ConfettiParams = OptionalCombine<{
+  style?: ConfettiStyle;
+  withStars?: boolean;
+}, {
+  top?: number;
+  left?: number;
+  width?: number;
+  height?: number;
+}>;
+
 export type TabState = {
   id: number;
   isBlurred?: boolean;
   isMasterTab: boolean;
   isInactive?: boolean;
+  shouldPreventComposerAnimation?: boolean;
   inviteHash?: string;
   canInstall?: boolean;
   isChatInfoShown: boolean;
@@ -276,6 +296,7 @@ export type TabState = {
     isSilent?: boolean;
     sendGrouped?: boolean;
     sendCompressed?: boolean;
+    isInvertedMedia?: true;
   };
 
   activeChatFolder: number;
@@ -374,7 +395,7 @@ export type TabState = {
     }>;
   };
 
-  localMediaSearch: {
+  sharedMediaSearch: {
     byChatThreadKey: Record<string, {
       currentType?: SharedMediaType;
       resultsByType?: Partial<Record<SharedMediaType, {
@@ -383,6 +404,10 @@ export type TabState = {
         foundIds: number[];
       }>>;
     }>;
+  };
+
+  chatMediaSearch: {
+    byChatThreadKey: Record<string, ChatMediaSearchParams>;
   };
 
   management: {
@@ -430,6 +455,7 @@ export type TabState = {
     playbackRate: number;
     isMuted: boolean;
     isHidden?: boolean;
+    withDynamicLoading?: boolean;
   };
 
   audioPlayer: {
@@ -470,6 +496,7 @@ export type TabState = {
   };
 
   payment: {
+    type?: 'regular' | 'stars';
     inputInvoice?: ApiInputInvoice;
     step?: PaymentStep;
     status?: ApiPaymentStatus;
@@ -507,7 +534,7 @@ export type TabState = {
       validUntil: number;
     };
     url?: string;
-    botName?: string;
+    botId?: string;
   };
 
   chatCreation?: {
@@ -620,6 +647,7 @@ export type TabState = {
     width?: number;
     height?: number;
     style?: ConfettiStyle;
+    withStars?: boolean;
   };
 
   urlAuth?: {
@@ -745,6 +773,11 @@ export type TabState = {
     type: 'phone' | 'username';
     collectible: string;
   };
+
+  starsBalanceModal?: {
+    originPayment?: TabState['payment'];
+  };
+  isStarPaymentModalOpen?: true;
 };
 
 export type GlobalState = {
@@ -791,6 +824,7 @@ export type GlobalState = {
   attachmentSettings: {
     shouldCompress: boolean;
     shouldSendGrouped: boolean;
+    isInvertedMedia?: true;
   };
 
   attachMenu: {
@@ -1074,6 +1108,12 @@ export type GlobalState = {
     byKey: Record<ApiReactionKey, ApiSavedReactionTag>;
     hash: string;
   };
+
+  stars?: {
+    topupOptions: ApiStarTopupOption[];
+    balance: number;
+    history: StarsTransactionHistory;
+  };
 };
 
 export type CallSound = (
@@ -1279,11 +1319,18 @@ export interface ActionPayloads {
   setLocalTextSearchTag: {
     tag: ApiReaction | undefined;
   } & WithTabId;
-  setLocalMediaSearchType: {
+  setSharedMediaSearchType: {
     mediaType: SharedMediaType;
   } & WithTabId;
   searchTextMessagesLocal: WithTabId | undefined;
-  searchMediaMessagesLocal: WithTabId | undefined;
+  searchSharedMediaMessages: WithTabId | undefined;
+  searchChatMediaMessages: {
+    currentMediaMessageId: number;
+    direction?: LoadMoreDirection;
+    chatId?: string;
+    threadId? : ThreadId;
+    limit?: number;
+  } & WithTabId;
   searchMessagesByDate: {
     timestamp: number;
   } & WithTabId;
@@ -1430,6 +1477,7 @@ export interface ActionPayloads {
     shouldGroupMessages?: boolean;
     messageList?: MessageList;
     isReaction?: true; // Reaction to the story are sent in the form of a message
+    isInvertedMedia?: true;
   } & WithTabId;
   sendInviteMessages: {
     chatId: string;
@@ -1639,10 +1687,13 @@ export interface ActionPayloads {
     savedCredentialId?: string;
     tipAmount?: number;
   } & WithTabId;
+  sendStarPaymentForm: WithTabId | undefined;
   getReceipt: {
-    receiptMessageId: number;
     chatId: string;
     messageId: number;
+  } & WithTabId;
+  getStarsReceipt: {
+    transaction: ApiStarsTransaction;
   } & WithTabId;
   sendCredentialsInfo: {
     credentials: ApiCredentials;
@@ -2074,6 +2125,15 @@ export interface ActionPayloads {
     };
   } & WithTabId;
 
+  loadStarStatus: undefined;
+  loadStarsTransactions: {
+    type: StarsTransactionType;
+  };
+  openStarsBalanceModal: {
+    originPayment?: TabState['payment'];
+  } & WithTabId;
+  closeStarsBalanceModal: WithTabId | undefined;
+
   checkChatlistInvite: {
     slug: string;
   } & WithTabId;
@@ -2135,6 +2195,10 @@ export interface ActionPayloads {
     chatId: string;
     ids: number[];
     shouldIncrement?: boolean;
+  };
+  loadFactChecks: {
+    chatId: string;
+    ids: number[];
   };
   loadOutboxReadDate: {
     chatId: string;
@@ -2413,6 +2477,7 @@ export interface ActionPayloads {
     volume?: number;
     playbackRate?: number;
     isMuted?: boolean;
+    withDynamicLoading?: boolean;
   } & WithTabId;
   closeMediaViewer: WithTabId | undefined;
   setMediaViewerVolume: {
@@ -2527,6 +2592,10 @@ export interface ActionPayloads {
     photo: ApiPhoto;
     isFallback?: boolean;
   };
+  // Composer
+  setShouldPreventComposerAnimation: {
+    shouldPreventComposerAnimation: boolean;
+  } & WithTabId;
 
   // Forwards
   openForwardMenu: {
@@ -2827,21 +2896,19 @@ export interface ActionPayloads {
   };
 
   // Misc
+  refreshLangPackFromCache: {
+    langCode: string;
+  };
   openPollModal: ({
     isQuiz?: boolean;
   } & WithTabId) | undefined;
   closePollModal: WithTabId | undefined;
-  requestConfetti: ({
-    top: number;
-    left: number;
-    width: number;
-    height: number;
-    style?: ConfettiStyle;
-  } & WithTabId) | WithTabId;
+  requestConfetti: (ConfettiParams & WithTabId) | WithTabId;
 
   updateAttachmentSettings: {
     shouldCompress?: boolean;
     shouldSendGrouped?: boolean;
+    isInvertedMedia?: true;
   };
 
   updateArchiveSettings: {

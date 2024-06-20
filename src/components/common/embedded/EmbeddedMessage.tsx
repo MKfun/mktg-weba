@@ -11,7 +11,6 @@ import type { IconName } from '../../../types/icons';
 
 import { CONTENT_NOT_SUPPORTED } from '../../../config';
 import {
-  getMediaContentTypeDescription,
   getMessageIsSpoiler,
   getMessageMediaHash,
   getMessageRoundVideo,
@@ -22,6 +21,7 @@ import {
   isMessageTranslatable,
   isUserId,
 } from '../../../global/helpers';
+import { getMediaContentTypeDescription } from '../../../global/helpers/messageSummary';
 import buildClassName from '../../../util/buildClassName';
 import freezeWhenClosed from '../../../util/hoc/freezeWhenClosed';
 import { getPictogramDimensions } from '../helpers/mediaDimensions';
@@ -31,13 +31,13 @@ import { renderTextWithEntities } from '../helpers/renderTextWithEntities';
 
 import { useFastClick } from '../../../hooks/useFastClick';
 import { useIsIntersecting } from '../../../hooks/useIntersectionObserver';
-import useLang from '../../../hooks/useLang';
 import useMedia from '../../../hooks/useMedia';
+import useOldLang from '../../../hooks/useOldLang';
 import useThumbnail from '../../../hooks/useThumbnail';
 import useMessageTranslation from '../../middle/message/hooks/useMessageTranslation';
 
 import ActionMessage from '../../middle/ActionMessage';
-import Icon from '../Icon';
+import Icon from '../icons/Icon';
 import MediaSpoiler from '../MediaSpoiler';
 import MessageSummary from '../MessageSummary';
 import EmojiIconBackground from './EmojiIconBackground';
@@ -109,7 +109,7 @@ const EmbeddedMessage: FC<OwnProps> = ({
     chatTranslations, message?.chatId, shouldTranslate ? message?.id : undefined, requestedChatTranslationLanguage,
   );
 
-  const lang = useLang();
+  const lang = useOldLang();
 
   const senderTitle = sender ? getSenderTitle(lang, sender)
     : (replyForwardInfo?.hiddenUserName || message?.forwardInfo?.hiddenUserName);

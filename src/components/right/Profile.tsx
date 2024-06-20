@@ -33,7 +33,7 @@ import {
   selectChat,
   selectChatFullInfo,
   selectChatMessages,
-  selectCurrentMediaSearch,
+  selectCurrentSharedMediaSearch,
   selectIsCurrentUserPremium,
   selectIsRightColumnShown,
   selectPeerFullInfo,
@@ -54,8 +54,8 @@ import usePeerStoriesPolling from '../../hooks/polling/usePeerStoriesPolling';
 import useCacheBuster from '../../hooks/useCacheBuster';
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useOldLang from '../../hooks/useOldLang';
 import useAsyncRendering from './hooks/useAsyncRendering';
 import useProfileState from './hooks/useProfileState';
 import useProfileViewportIds from './hooks/useProfileViewportIds';
@@ -186,11 +186,11 @@ const Profile: FC<OwnProps & StateProps> = ({
   forceScrollProfileTab,
 }) => {
   const {
-    setLocalMediaSearchType,
+    setSharedMediaSearchType,
     loadMoreMembers,
     loadCommonChats,
     openChat,
-    searchMediaMessagesLocal,
+    searchSharedMediaMessages,
     openMediaViewer,
     openAudioPlayer,
     focusMessage,
@@ -206,7 +206,7 @@ const Profile: FC<OwnProps & StateProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
   const transitionRef = useRef<HTMLDivElement>(null);
-  const lang = useLang();
+  const lang = useOldLang();
   const [deletingUserId, setDeletingUserId] = useState<string | undefined>();
 
   const profileId = isSavedDialog ? String(threadId) : (resolvedUserId || chatId);
@@ -275,7 +275,7 @@ const Profile: FC<OwnProps & StateProps> = ({
   const [resultType, viewportIds, getMore, noProfileInfo] = useProfileViewportIds(
     loadMoreMembers,
     loadCommonChats,
-    searchMediaMessagesLocal,
+    searchSharedMediaMessages,
     handleLoadPeerStories,
     handleLoadStoriesArchive,
     tabType,
@@ -329,8 +329,8 @@ const Profile: FC<OwnProps & StateProps> = ({
 
   // Update search type when switching tabs or forum topics
   useEffect(() => {
-    setLocalMediaSearchType({ mediaType: tabType as SharedMediaType });
-  }, [setLocalMediaSearchType, tabType, threadId]);
+    setSharedMediaSearchType({ mediaType: tabType as SharedMediaType });
+  }, [setSharedMediaSearchType, tabType, threadId]);
 
   useEffect(() => {
     loadProfilePhotos({ profileId });
@@ -683,7 +683,7 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectChat(global, chatId);
     const chatFullInfo = selectChatFullInfo(global, chatId);
     const messagesById = selectChatMessages(global, chatId);
-    const { currentType: mediaSearchType, resultsByType } = selectCurrentMediaSearch(global) || {};
+    const { currentType: mediaSearchType, resultsByType } = selectCurrentSharedMediaSearch(global) || {};
     const { foundIds } = (resultsByType && mediaSearchType && resultsByType[mediaSearchType]) || {};
 
     const isTopicInfo = Boolean(chat?.isForum && threadId && threadId !== MAIN_THREAD_ID);

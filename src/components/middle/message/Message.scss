@@ -643,17 +643,20 @@
   }
 
   .message-content {
-    &.has-replies:not(.custom-shape):not(.has-reactions) .WebPage.with-square-photo .media-inner,
-    &.has-replies:not(.custom-shape):not(.has-reactions) .WebPage.with-video .media-inner {
-      margin-bottom: 1.5rem !important;
-    }
-
     &.has-replies:not(.custom-shape),
-    &.text:not(.web-page) {
+    &.has-footer:not(.web-page) {
       .media-inner,
       .Album {
         --border-bottom-left-radius: 0;
         --border-bottom-right-radius: 0;
+      }
+    }
+
+    &.text.is-inverted-media {
+      .Album,
+      .media-inner {
+        --border-top-left-radius: 0;
+        --border-top-right-radius: 0;
       }
     }
 
@@ -685,7 +688,7 @@
     position: absolute;
     bottom: 0;
     background-color: var(--pattern-color);
-    border-radius: 1rem;
+    border-radius: 1.125rem;
 
     display: flex;
     flex-direction: column;

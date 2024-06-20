@@ -122,6 +122,7 @@ export default function createConfig(
                 importLoaders: 1,
                 modules: {
                   namedExport: false,
+                  auto: true,
                 },
               },
             },
@@ -156,7 +157,7 @@ export default function createConfig(
           type: 'asset/resource',
         },
         {
-          test: /\.(txt|tl)$/i,
+          test: /\.(txt|tl|strings)$/i,
           type: 'asset/source',
         },
       ],

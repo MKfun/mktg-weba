@@ -16,14 +16,14 @@ import { selectChatMessages, selectUser, selectUserStatus } from '../../global/s
 import buildClassName from '../../util/buildClassName';
 import renderText from './helpers/renderText';
 
-import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useOldLang from '../../hooks/useOldLang';
 
 import RippleEffect from '../ui/RippleEffect';
 import Avatar from './Avatar';
 import DotAnimation from './DotAnimation';
 import FullNameTitle from './FullNameTitle';
-import Icon from './Icon';
+import Icon from './icons/Icon';
 import TypingStatus from './TypingStatus';
 
 type OwnProps = {
@@ -105,7 +105,7 @@ const PrivateChatInfo: FC<OwnProps & StateProps> = ({
     loadProfilePhotos,
   } = getActions();
 
-  const lang = useLang();
+  const lang = useOldLang();
 
   const { id: userId } = user || {};
 
@@ -227,7 +227,7 @@ const PrivateChatInfo: FC<OwnProps & StateProps> = ({
         />
       )}
       <Avatar
-        key={customPeer?.type || user?.id}
+        key={user?.id}
         size={avatarSize}
         peer={customPeer || user}
         className={buildClassName(isSavedDialog && 'overlay-avatar')}

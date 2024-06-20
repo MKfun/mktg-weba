@@ -17,12 +17,12 @@ import { copyTextToClipboard } from '../../util/clipboard';
 import stopEvent from '../../util/stopEvent';
 import renderText from './helpers/renderText';
 
-import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useOldLang from '../../hooks/useOldLang';
 
 import CustomEmoji from './CustomEmoji';
 import FakeIcon from './FakeIcon';
-import PremiumIcon from './PremiumIcon';
+import StarIcon from './icons/StarIcon';
 import VerifiedIcon from './VerifiedIcon';
 
 import styles from './FullNameTitle.module.scss';
@@ -58,7 +58,7 @@ const FullNameTitle: FC<OwnProps> = ({
   observeIntersection,
   iconElement,
 }) => {
-  const lang = useLang();
+  const lang = useOldLang();
   const { showNotification } = getActions();
   const realPeer = 'id' in peer ? peer : undefined;
   const customPeer = 'isCustomPeer' in peer ? peer : undefined;
@@ -127,7 +127,7 @@ const FullNameTitle: FC<OwnProps> = ({
               onClick={onEmojiStatusClick}
             />
           )}
-          {withEmojiStatus && !realPeer?.emojiStatus && isPremium && <PremiumIcon />}
+          {withEmojiStatus && !realPeer?.emojiStatus && isPremium && <StarIcon />}
         </>
       )}
       {iconElement}

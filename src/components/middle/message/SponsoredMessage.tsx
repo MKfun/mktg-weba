@@ -14,12 +14,12 @@ import { preventMessageInputBlur } from '../helpers/preventMessageInputBlur';
 import useContextMenuHandlers from '../../../hooks/useContextMenuHandlers';
 import useFlag from '../../../hooks/useFlag';
 import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
-import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
+import useOldLang from '../../../hooks/useOldLang';
 
 import AboutAdsModal from '../../common/AboutAdsModal.async';
 import Avatar from '../../common/Avatar';
-import Icon from '../../common/Icon';
+import Icon from '../../common/icons/Icon';
 import PeerColorWrapper from '../../common/PeerColorWrapper';
 import Button from '../../ui/Button';
 import MessageAppendix from './MessageAppendix';
@@ -51,7 +51,7 @@ const SponsoredMessage: FC<OwnProps & StateProps> = ({
     reportSponsoredMessage,
   } = getActions();
 
-  const lang = useLang();
+  const lang = useOldLang();
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null

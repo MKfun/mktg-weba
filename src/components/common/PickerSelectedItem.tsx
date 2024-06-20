@@ -12,10 +12,10 @@ import buildClassName from '../../util/buildClassName';
 import { getPeerColorClass } from './helpers/peerColor';
 import renderText from './helpers/renderText';
 
-import useLang from '../../hooks/useLang';
+import useOldLang from '../../hooks/useOldLang';
 
 import Avatar from './Avatar';
-import Icon from './Icon';
+import Icon from './icons/Icon';
 
 import './PickerSelectedItem.scss';
 
@@ -55,7 +55,7 @@ const PickerSelectedItem: FC<OwnProps & StateProps> = ({
   withPeerColors,
   onClick,
 }) => {
-  const lang = useLang();
+  const lang = useOldLang();
 
   let iconElement: TeactNode | undefined;
   let titleText: any;

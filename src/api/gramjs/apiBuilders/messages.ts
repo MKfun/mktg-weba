@@ -6,6 +6,7 @@ import type {
   ApiAttachment,
   ApiChat,
   ApiContact,
+  ApiFactCheck,
   ApiGroupCall,
   ApiInputMessageReplyInfo,
   ApiInputReplyInfo,
@@ -52,6 +53,7 @@ import {
 } from '../helpers';
 import { buildApiCallDiscardReason } from './calls';
 import {
+  buildApiFormattedText,
   buildApiPhoto,
 } from './common';
 import { buildMessageContent, buildMessageMediaContent, buildMessageTextContent } from './messageContent';
@@ -149,12 +151,7 @@ export function buildApiMessageFromNotification(
 
 export type UniversalMessage = (
   Pick<GramJs.Message & GramJs.MessageService, ('id' | 'date')>
-  & Pick<Partial<GramJs.Message & GramJs.MessageService>, (
-    'out' | 'message' | 'entities' | 'fromId' | 'peerId' | 'fwdFrom' | 'replyTo' | 'replyMarkup' | 'post' |
-    'media' | 'action' | 'views' | 'editDate' | 'editHide' | 'mediaUnread' | 'groupedId' | 'mentioned' | 'viaBotId' |
-    'replies' | 'fromScheduled' | 'postAuthor' | 'noforwards' | 'reactions' | 'forwards' | 'silent' | 'pinned' |
-    'savedPeerId' | 'fromBoostsApplied' | 'quickReplyShortcutId' | 'viaBusinessBotId'
-  )>
+  & Partial<GramJs.Message & GramJs.MessageService>
 );
 
 export function buildApiMessageWithChatId(
@@ -192,6 +189,9 @@ export function buildApiMessageWithChatId(
   const emojiOnlyCount = getEmojiOnlyCountForMessage(content, groupedId);
   const hasComments = mtpMessage.replies?.comments;
   const senderBoosts = mtpMessage.fromBoostsApplied;
+  const factCheck = mtpMessage.factcheck && buildApiFactCheck(mtpMessage.factcheck);
+
+  const isInvertedMedia = mtpMessage.invertMedia;
 
   const savedPeerId = mtpMessage.savedPeerId && getApiChatIdFromMtpPeer(mtpMessage.savedPeerId);
 
@@ -234,6 +234,8 @@ export function buildApiMessageWithChatId(
     savedPeerId,
     senderBoosts,
     viaBusinessBotId: mtpMessage.viaBusinessBotId?.toString(),
+    factCheck,
+    isInvertedMedia,
   });
 }
 
@@ -317,6 +319,15 @@ function buildApiReplyInfo(replyHeader: GramJs.TypeMessageReplyHeader): ApiReply
   }
 
   return undefined;
+}
+
+export function buildApiFactCheck(factCheck: GramJs.FactCheck): ApiFactCheck {
+  return {
+    shouldFetch: factCheck.needCheck,
+    hash: factCheck.hash.toString(),
+    text: factCheck.text && buildApiFormattedText(factCheck.text),
+    countryCode: factCheck.country,
+  };
 }
 
 function buildAction(
@@ -450,6 +461,7 @@ function buildAction(
     amount = Number(action.totalAmount);
     currency = action.currency;
     text = 'PaymentSuccessfullyPaid';
+    type = 'receipt';
     if (targetPeerId) {
       targetUserIds.push(targetPeerId);
     }
@@ -686,7 +698,6 @@ function buildReplyButtons(message: UniversalMessage, shouldSkipBuyButton?: bool
         if (media instanceof GramJs.MessageMediaInvoice && media.receiptMsgId) {
           return {
             type: 'receipt',
-            text: 'PaymentReceipt',
             receiptMessageId: media.receiptMsgId,
           };
         }
@@ -790,6 +801,7 @@ export function buildLocalMessage(
   scheduledAt?: number,
   sendAs?: ApiPeer,
   story?: ApiStory | ApiStorySkipped,
+  isInvertedMedia?: true,
 ): ApiMessage {
   const localId = getNextLocalMessageId(lastMessageId);
   const media = attachment && buildUploadingMedia(attachment);
@@ -824,6 +836,7 @@ export function buildLocalMessage(
     }),
     ...(scheduledAt && { isScheduled: true }),
     isForwardingAllowed: true,
+    isInvertedMedia,
   } satisfies ApiMessage;
 
   const emojiOnlyCount = getEmojiOnlyCountForMessage(message.content, message.groupedId);
@@ -861,6 +874,7 @@ export function buildLocalForwardedMessage({
     senderId,
     groupedId,
     isInAlbum,
+    isInvertedMedia,
   } = message;
 
   const isAudio = content.audio;
@@ -901,6 +915,7 @@ export function buildLocalForwardedMessage({
     isInAlbum,
     isForwardingAllowed: true,
     replyInfo,
+    isInvertedMedia,
     ...(toThreadId && toChat?.isForum && { isTopicReply: true }),
 
     ...(emojiOnlyCount && { emojiOnlyCount }),
