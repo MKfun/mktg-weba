@@ -8,7 +8,6 @@ import type {
 } from '../../../../api/types';
 import type { ApiDraft } from '../../../../global/types';
 import type { ObserveFn } from '../../../../hooks/useIntersectionObserver';
-import type { LangFn } from '../../../../hooks/useOldLang';
 
 import { ANIMATION_END_DELAY, CHAT_HEIGHT_PX } from '../../../../config';
 import { requestMutation } from '../../../../lib/fasterdom/fasterdom';
@@ -44,6 +43,7 @@ const ANIMATION_DURATION = 200;
 
 export default function useChatListEntry({
   chat,
+  topics,
   lastMessage,
   chatId,
   typingStatus,
@@ -62,6 +62,7 @@ export default function useChatListEntry({
   isPreview,
 }: {
   chat?: ApiChat;
+  topics?: Record<number, ApiTopic>;
   lastMessage?: ApiMessage;
   chatId: string;
   typingStatus?: ApiTypingStatus;
@@ -177,7 +178,7 @@ export default function useChatListEntry({
         )}
         {!isSavedDialog && lastMessage.forwardInfo && (<i className="icon icon-share-filled chat-prefix-icon" />)}
         {lastMessage.replyInfo?.type === 'story' && (<i className="icon icon-story-reply chat-prefix-icon" />)}
-        {renderSummary(lang, lastMessage, observeIntersection, mediaBlobUrl || mediaThumbnail, isRoundVideo)}
+        {renderSummary(lastMessage, observeIntersection, mediaBlobUrl || mediaThumbnail, isRoundVideo)}
       </p>
     );
   }, [
@@ -193,6 +194,7 @@ export default function useChatListEntry({
           chat={chat}
           renderLastMessage={renderLastMessageOrTyping}
           observeIntersection={observeIntersection}
+          topics={topics}
         />
       );
     }
@@ -243,11 +245,10 @@ export default function useChatListEntry({
 }
 
 function renderSummary(
-  lang: LangFn, message: ApiMessage, observeIntersection?: ObserveFn, blobUrl?: string, isRoundVideo?: boolean,
+  message: ApiMessage, observeIntersection?: ObserveFn, blobUrl?: string, isRoundVideo?: boolean,
 ) {
   const messageSummary = (
     <MessageSummary
-      lang={lang}
       message={message}
       noEmoji={Boolean(blobUrl)}
       observeIntersectionForLoading={observeIntersection}

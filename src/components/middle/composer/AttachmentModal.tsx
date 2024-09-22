@@ -15,11 +15,11 @@ import {
   BASE_EMOJI_KEYWORD_LANG,
   EDITABLE_INPUT_MODAL_ID,
   SUPPORTED_AUDIO_CONTENT_TYPES,
-  SUPPORTED_IMAGE_CONTENT_TYPES,
+  SUPPORTED_PHOTO_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
 } from '../../../config';
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
-import { getAttachmentType, isUserId } from '../../../global/helpers';
+import { getAttachmentMediaType, isUserId } from '../../../global/helpers';
 import { selectChatFullInfo, selectIsChatWithSelf } from '../../../global/selectors';
 import { selectCurrentLimit } from '../../../global/selectors/limits';
 import buildClassName from '../../../util/buildClassName';
@@ -37,7 +37,7 @@ import useFlag from '../../../hooks/useFlag';
 import useGetSelectionRange from '../../../hooks/useGetSelectionRange';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
-import usePrevious from '../../../hooks/usePrevious';
+import usePreviousDeprecated from '../../../hooks/usePreviousDeprecated';
 import useScrolledState from '../../../hooks/useScrolledState';
 import useCustomEmojiTooltip from './hooks/useCustomEmojiTooltip';
 import useEmojiTooltip from './hooks/useEmojiTooltip';
@@ -149,13 +149,13 @@ const AttachmentModal: FC<OwnProps & StateProps> = ({
   const inputRef = useRef<HTMLDivElement>(null);
 
   const hideTimeoutRef = useRef<number>();
-  const prevAttachments = usePrevious(attachments);
+  const prevAttachments = usePreviousDeprecated(attachments);
   const renderingAttachments = attachments.length ? attachments : prevAttachments;
   const { isMobile } = useAppLayout();
 
   const isEditing = editingMessage && Boolean(editingMessage);
   const isInAlbum = editingMessage && editingMessage?.groupedId;
-  const isEditingMessageFile = isEditing && attachments?.length && getAttachmentType(attachments[0]);
+  const isEditingMessageFile = isEditing && attachments?.length && getAttachmentMediaType(attachments[0]);
   const notEditingFile = isEditingMessageFile !== 'file';
 
   const [isSymbolMenuOpen, openSymbolMenu, closeSymbolMenu] = useFlag();
@@ -428,7 +428,7 @@ const AttachmentModal: FC<OwnProps & StateProps> = ({
 
   const [areAllPhotos, areAllVideos, areAllAudios] = useMemo(() => {
     if (!isQuickGallery || !renderingAttachments) return [false, false, false];
-    const everyPhoto = renderingAttachments.every((a) => SUPPORTED_IMAGE_CONTENT_TYPES.has(a.mimeType));
+    const everyPhoto = renderingAttachments.every((a) => SUPPORTED_PHOTO_CONTENT_TYPES.has(a.mimeType));
     const everyVideo = renderingAttachments.every((a) => SUPPORTED_VIDEO_CONTENT_TYPES.has(a.mimeType));
     const everyAudio = renderingAttachments.every((a) => SUPPORTED_AUDIO_CONTENT_TYPES.has(a.mimeType));
     return [everyPhoto, everyVideo, everyAudio];

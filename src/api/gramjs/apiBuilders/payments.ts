@@ -61,7 +61,10 @@ export function buildApiReceipt(receipt: GramJs.payments.TypePaymentReceipt): Ap
     return {
       type: 'stars',
       currency,
-      botId: buildApiPeerId(botId, 'user'),
+      peer: {
+        type: 'peer',
+        id: buildApiPeerId(botId, 'user'),
+      },
       date,
       text,
       title,
@@ -383,6 +386,19 @@ export function buildApiPremiumGiftCodeOption(option: GramJs.PremiumGiftCodeOpti
   };
 }
 
+export function buildApiStarsGiftOptions(option: GramJs.StarsGiftOption): ApiStarTopupOption {
+  const {
+    extended, stars, amount, currency,
+  } = option;
+
+  return {
+    isExtended: extended,
+    stars: stars.toJSNumber(),
+    amount: amount.toJSNumber(),
+    currency,
+  };
+}
+
 export function buildApiStarsTransactionPeer(peer: GramJs.TypeStarsTransactionPeer): ApiStarsTransactionPeer {
   if (peer instanceof GramJs.StarsTransactionPeerAppStore) {
     return { type: 'appStore' };
@@ -413,7 +429,7 @@ export function buildApiStarsTransactionPeer(peer: GramJs.TypeStarsTransactionPe
 
 export function buildApiStarsTransaction(transaction: GramJs.StarsTransaction): ApiStarsTransaction {
   const {
-    date, id, peer, stars, description, photo, title, refund, extendedMedia, failed, msgId, pending,
+    date, id, peer, stars, description, photo, title, refund, extendedMedia, failed, msgId, pending, gift,
   } = transaction;
 
   if (photo) {
@@ -435,6 +451,7 @@ export function buildApiStarsTransaction(transaction: GramJs.StarsTransaction): 
     hasFailed: failed,
     isPending: pending,
     messageId: msgId,
+    isGift: gift,
     extendedMedia: boughtExtendedMedia,
   };
 }

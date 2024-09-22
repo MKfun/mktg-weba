@@ -1,5 +1,5 @@
 import type { FC } from '../../lib/teact/teact';
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useRef } from '../../lib/teact/teact';
 import { getGlobal } from '../../global';
 
 import type { ApiSticker } from '../../api/types';
@@ -14,10 +14,10 @@ import { IS_WEBM_SUPPORTED } from '../../util/windowEnvironment';
 import useColorFilter from '../../hooks/stickers/useColorFilter';
 import useCoordsInSharedCanvas from '../../hooks/useCoordsInSharedCanvas';
 import useFlag from '../../hooks/useFlag';
-import useHeavyAnimationCheck, { isHeavyAnimating } from '../../hooks/useHeavyAnimationCheck';
 import { useIsIntersecting } from '../../hooks/useIntersectionObserver';
 import useMedia from '../../hooks/useMedia';
 import useMediaTransition from '../../hooks/useMediaTransition';
+import useMountAfterHeavyAnimation from '../../hooks/useMountAfterHeavyAnimation';
 import useThumbnail from '../../hooks/useThumbnail';
 import useUniqueId from '../../hooks/useUniqueId';
 import useDevicePixelRatio from '../../hooks/window/useDevicePixelRatio';
@@ -83,7 +83,7 @@ const StickerView: FC<OwnProps> = ({
     id, isLottie, stickerSetInfo, emoji,
   } = sticker;
   const [isVideoBroken, markVideoBroken] = useFlag();
-  const isUnsupportedVideo = sticker.isVideo && (!IS_WEBM_SUPPORTED || isVideoBroken);
+  const isUnsupportedVideo = sticker.isVideo && !IS_WEBM_SUPPORTED;
   const isVideo = sticker.isVideo && !isUnsupportedVideo;
   const isStatic = !isLottie && !isVideo;
   const previewMediaHash = getStickerMediaHash(sticker, 'preview');
@@ -99,31 +99,37 @@ const StickerView: FC<OwnProps> = ({
     && isIntersectingForLoading
   );
   const shouldPlay = isIntersectingForPlaying && !noPlay;
+  const hasIntersectedForPlayingRef = useRef(isIntersectingForPlaying);
+  if (!hasIntersectedForPlayingRef.current && isIntersectingForPlaying) {
+    hasIntersectedForPlayingRef.current = true;
+  }
+
+  const cachedPreview = mediaLoader.getFromMemory(previewMediaHash);
+  const isReadyToMountFullMedia = useMountAfterHeavyAnimation(hasIntersectedForPlayingRef.current);
+  const shouldForcePreview = isUnsupportedVideo || (isStatic ? isSmall : noPlay);
+  const shouldLoadPreview = !customColor && !cachedPreview && (!isReadyToMountFullMedia || shouldForcePreview);
+  const previewMediaData = useMedia(previewMediaHash, !shouldLoadPreview);
+  const withPreview = shouldLoadPreview || cachedPreview;
+
+  const shouldSkipFullMedia = Boolean(shouldForcePreview || (
+    fullMediaHash === previewMediaHash && (cachedPreview || previewMediaData)
+  ));
+  const fullMediaData = useMedia(fullMediaHash || `sticker${id}`, !shouldLoad || shouldSkipFullMedia);
+  const shouldRenderFullMedia = isReadyToMountFullMedia && fullMediaData && !isVideoBroken;
+  const [isPlayerReady, markPlayerReady] = useFlag();
+  const isFullMediaReady = shouldRenderFullMedia && (isStatic || isPlayerReady);
 
   const thumbDataUri = useThumbnail(sticker);
-  // Use preview instead of thumb but only if it's already loaded or when playing an animation is disabled
-  const previewMediaDataFromCache: string | undefined = mediaLoader.getFromMemory(previewMediaHash);
-  const previewMediaData = useMedia(previewMediaHash, Boolean(previewMediaDataFromCache || !noPlay));
-  const thumbData = customColor ? thumbDataUri : (previewMediaData || thumbDataUri);
-
-  const shouldForcePreview = isUnsupportedVideo || (isStatic && isSmall);
-  fullMediaHash ||= shouldForcePreview ? previewMediaHash : `sticker${id}`;
-
-  // If preloaded preview is forced, it will render as thumb, so no need to load it again
-  const shouldSkipFullMedia = Boolean(fullMediaHash === previewMediaHash && previewMediaData);
-
-  const fullMediaData = useMedia(fullMediaHash, !shouldLoad || shouldSkipFullMedia);
-  // If Lottie data is loaded we will only render thumb if it's good enough (from preview)
-  const [isPlayerReady, markPlayerReady] = useFlag(Boolean(isLottie && fullMediaData && !previewMediaData));
-  // Delay mounting until heavy animation ends
-  const [isReadyToMount, markReadyToMount, unmarkReadyToMount] = useFlag(!isHeavyAnimating());
-  useHeavyAnimationCheck(unmarkReadyToMount, markReadyToMount, isReadyToMount);
-  const isFullMediaReady = isReadyToMount && fullMediaData && (isStatic || isPlayerReady);
-
+  const thumbData = cachedPreview || previewMediaData || thumbDataUri;
   const isThumbOpaque = sharedCanvasRef && !withTranslucentThumb;
-  const thumbClassNames = useMediaTransition(thumbData && !isFullMediaReady);
-  const fullMediaClassNames = useMediaTransition(isFullMediaReady);
-  const noTransition = isLottie && previewMediaData;
+
+  const noCrossTransition = Boolean(isLottie && withPreview);
+  const thumbRef = useMediaTransition<HTMLImageElement>(thumbData && !isFullMediaReady, {
+    noCloseTransition: noCrossTransition,
+  });
+  const fullMediaRef = useMediaTransition<HTMLElement>(isFullMediaReady, {
+    noOpenTransition: noCrossTransition,
+  });
 
   const coords = useCoordsInSharedCanvas(containerRef, sharedCanvasRef);
 
@@ -142,28 +148,28 @@ const StickerView: FC<OwnProps> = ({
   return (
     <>
       <img
+        ref={thumbRef}
         src={thumbData}
         className={buildClassName(
           styles.thumb,
-          noTransition && styles.noTransition,
+          noCrossTransition && styles.noTransition,
           isThumbOpaque && styles.thumbOpaque,
           thumbClassName,
-          thumbClassNames,
           'sticker-media',
         )}
         alt=""
         draggable={false}
       />
-      {isReadyToMount && (isLottie ? (
+      {shouldRenderFullMedia && (isLottie ? (
         <AnimatedSticker
+          ref={fullMediaRef as React.RefObject<HTMLDivElement>}
           key={renderId}
           renderId={renderId}
           size={size}
           className={buildClassName(
             styles.media,
-            (noTransition || isThumbOpaque) && styles.noTransition,
+            (noCrossTransition || isThumbOpaque) && styles.noTransition,
             fullMediaClassName,
-            fullMediaClassNames,
           )}
           tgsUrl={fullMediaData}
           play={shouldPlay}
@@ -180,8 +186,9 @@ const StickerView: FC<OwnProps> = ({
         />
       ) : isVideo ? (
         <OptimizedVideo
+          ref={fullMediaRef as React.RefObject<HTMLVideoElement>}
           canPlay={shouldPlay}
-          className={buildClassName(styles.media, fullMediaClassName, fullMediaClassNames, 'sticker-media')}
+          className={buildClassName(styles.media, fullMediaClassName, 'sticker-media')}
           src={fullMediaData}
           playsInline
           muted
@@ -195,7 +202,8 @@ const StickerView: FC<OwnProps> = ({
         />
       ) : (
         <img
-          className={buildClassName(styles.media, fullMediaClassName, fullMediaClassNames, 'sticker-media')}
+          ref={fullMediaRef as React.RefObject<HTMLImageElement>}
+          className={buildClassName(styles.media, fullMediaClassName, 'sticker-media')}
           src={fullMediaData}
           alt={emoji}
           style={filterStyle}

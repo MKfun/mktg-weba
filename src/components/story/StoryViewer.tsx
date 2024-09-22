@@ -1,4 +1,5 @@
 import React, {
+  beginHeavyAnimation,
   memo, useCallback, useEffect, useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
@@ -19,9 +20,8 @@ import { disableDirectTextInput, enableDirectTextInput } from '../../util/direct
 import { animateClosing, animateOpening } from './helpers/ghostAnimation';
 
 import useFlag from '../../hooks/useFlag';
-import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import useOldLang from '../../hooks/useOldLang';
-import usePrevious from '../../hooks/usePrevious';
+import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
 import { dispatchPriorityPlaybackEvent } from '../../hooks/usePriorityPlaybackCheck';
 import useSlideSizes from './hooks/useSlideSizes';
 import useStoryProps from './hooks/useStoryProps';
@@ -69,10 +69,10 @@ function StoryViewer({
 
   const { bestImageData, thumbnail } = useStoryProps(story);
   const slideSizes = useSlideSizes();
-  const isPrevOpen = usePrevious(isOpen);
-  const prevBestImageData = usePrevious(bestImageData);
-  const prevPeerId = usePrevious(peerId);
-  const prevOrigin = usePrevious(origin);
+  const isPrevOpen = usePreviousDeprecated(isOpen);
+  const prevBestImageData = usePreviousDeprecated(bestImageData);
+  const prevPeerId = usePreviousDeprecated(peerId);
+  const prevOrigin = usePreviousDeprecated(origin);
   const isGhostAnimation = Boolean(withAnimation && !shouldSkipHistoryAnimations);
 
   useEffect(() => {
@@ -117,11 +117,11 @@ function StoryViewer({
 
   useEffect(() => {
     if (isGhostAnimation && !isPrevOpen && isOpen && peerId && thumbnail && origin !== undefined) {
-      dispatchHeavyAnimationEvent(ANIMATION_DURATION + ANIMATION_END_DELAY);
+      beginHeavyAnimation(ANIMATION_DURATION + ANIMATION_END_DELAY);
       animateOpening(peerId, origin, thumbnail, bestImageData, slideSizes.activeSlide);
     }
     if (isGhostAnimation && isPrevOpen && !isOpen && prevPeerId && prevBestImageData && prevOrigin !== undefined) {
-      dispatchHeavyAnimationEvent(ANIMATION_DURATION + ANIMATION_END_DELAY);
+      beginHeavyAnimation(ANIMATION_DURATION + ANIMATION_END_DELAY);
       animateClosing(prevPeerId, prevOrigin, prevBestImageData);
     }
   }, [

@@ -1,4 +1,4 @@
-import type { ApiUser, ApiUsername } from '../../../api/types';
+import type { ApiUsername } from '../../../api/types';
 import type {
   ApiPrivacySettings,
 } from '../../../types';
@@ -19,12 +19,13 @@ import { callApi } from '../../../api/gramjs';
 import { buildApiInputPrivacyRules } from '../../helpers';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
-  addBlockedUser, addNotifyExceptions, addUsers, removeBlockedUser, replaceSettings, updateChat, updateChats,
+  addBlockedUser, addNotifyExceptions, deletePeerPhoto,
+  removeBlockedUser, replaceSettings, updateChat,
   updateNotifySettings, updateUser, updateUserFullInfo,
 } from '../../reducers';
 import { updateTabState } from '../../reducers/tabs';
 import {
-  selectChat, selectTabState, selectUser, selectUserFullInfo,
+  selectChat, selectTabState, selectUser,
 } from '../../selectors';
 
 addActionHandler('updateProfile', async (global, actions, payload): Promise<void> => {
@@ -46,12 +47,7 @@ addActionHandler('updateProfile', async (global, actions, payload): Promise<void
   setGlobal(global);
 
   if (photo) {
-    const result = await callApi('uploadProfilePhoto', photo);
-    if (result) {
-      global = getGlobal();
-      global = addUsers(global, buildCollectionByKey(result.users, 'id'));
-      setGlobal(global);
-    }
+    await callApi('uploadProfilePhoto', photo);
   }
 
   if (firstName || lastName || about) {
@@ -110,7 +106,7 @@ addActionHandler('updateProfilePhoto', async (global, actions, payload): Promise
   const currentUser = selectUser(global, currentUserId);
   if (!currentUser) return;
 
-  global = updateUser(global, currentUserId, { avatarHash: undefined });
+  global = updateUser(global, currentUserId, { avatarPhotoId: undefined });
   global = updateUserFullInfo(global, currentUserId, { profilePhoto: undefined });
 
   setGlobal(global);
@@ -118,10 +114,6 @@ addActionHandler('updateProfilePhoto', async (global, actions, payload): Promise
   const result = await callApi('updateProfilePhoto', photo, isFallback);
   if (!result) return;
 
-  const { users } = result;
-  global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(users, 'id'));
-  setGlobal(global);
   actions.loadFullUser({ userId: currentUserId, withPhotos: true });
 });
 
@@ -129,32 +121,14 @@ addActionHandler('deleteProfilePhoto', async (global, actions, payload): Promise
   const { photo } = payload;
   const { currentUserId } = global;
   if (!currentUserId) return;
-  const currentUser = selectUser(global, currentUserId);
-  if (!currentUser) return;
 
-  const fullInfo = selectUserFullInfo(global, currentUserId);
+  const isDeleted = await callApi('deleteProfilePhotos', [photo]);
+  if (!isDeleted) return;
 
-  if (currentUser.avatarHash === photo.id || fullInfo?.profilePhoto?.id === photo.id) {
-    global = updateUser(global, currentUserId, { avatarHash: undefined });
-    global = updateUserFullInfo(global, currentUserId, { profilePhoto: undefined });
-  }
-
-  if (fullInfo?.fallbackPhoto?.id === photo.id) {
-    global = updateUserFullInfo(global, currentUserId, { fallbackPhoto: undefined });
-  }
-
-  if (fullInfo?.personalPhoto?.id === photo.id) {
-    global = updateUserFullInfo(global, currentUserId, { personalPhoto: undefined });
-  }
-
-  const { photos = [] } = currentUser;
-
-  const newPhotos = photos.filter((p) => p.id !== photo.id);
-  global = updateUser(global, currentUserId, { photos: newPhotos });
-
+  global = getGlobal();
+  global = deletePeerPhoto(global, currentUserId, photo.id);
   setGlobal(global);
 
-  await callApi('deleteProfilePhotos', [photo]);
   actions.loadFullUser({ userId: currentUserId, withPhotos: true });
 });
 
@@ -277,13 +251,6 @@ addActionHandler('loadBlockedUsers', async (global): Promise<void> => {
   if (!result) return;
 
   global = getGlobal();
-
-  if (result.users?.length) {
-    global = addUsers(global, buildCollectionByKey(result.users, 'id'));
-  }
-  if (result.chats?.length) {
-    global = updateChats(global, buildCollectionByKey(result.chats, 'id'));
-  }
 
   global = {
     ...global,
@@ -442,14 +409,10 @@ addActionHandler('loadPrivacySettings', async (global): Promise<void> => {
     bioSettings,
     birthdaySettings,
   ] = result as {
-    users: ApiUser[];
     rules: ApiPrivacySettings;
   }[];
 
-  const allUsers = result.flatMap((e) => e!.users);
-
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(allUsers, 'id'));
   global = {
     ...global,
     settings: {
@@ -483,7 +446,6 @@ addActionHandler('setPrivacyVisibility', async (global, actions, payload): Promi
     }
 
     global = getGlobal();
-    global = addUsers(global, buildCollectionByKey(result.users, 'id'));
     global = {
       ...global,
       settings: {
@@ -519,7 +481,6 @@ addActionHandler('setPrivacyVisibility', async (global, actions, payload): Promi
   onSuccess?.();
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
   global = {
     ...global,
     settings: {
@@ -559,7 +520,6 @@ addActionHandler('setPrivacySettings', async (global, actions, payload): Promise
   }
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
   global = {
     ...global,
     settings: {
@@ -777,7 +737,7 @@ addActionHandler('toggleUsername', async (global, actions, payload): Promise<voi
 
 addActionHandler('toggleChatUsername', async (global, actions, payload): Promise<void> => {
   const {
-    chatId, username, isActive, tabId = getCurrentTabId(),
+    chatId, username, isActive,
   } = payload;
   const chat = selectChat(global, chatId);
   if (!chat?.usernames) {
@@ -803,7 +763,7 @@ addActionHandler('toggleChatUsername', async (global, actions, payload): Promise
   });
 
   if (!result) {
-    actions.loadFullChat({ chatId, tabId });
+    actions.loadFullChat({ chatId });
   }
 });
 

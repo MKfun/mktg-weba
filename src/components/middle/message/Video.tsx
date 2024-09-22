@@ -6,10 +6,7 @@ import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
 import type { IMediaDimensions } from './helpers/calculateAlbumLayout';
 
 import {
-  getMediaFormat,
-  getMediaThumbUri,
-  getMediaTransferState,
-  getVideoMediaHash,
+  getMediaFormat, getMediaThumbUri, getMediaTransferState, getVideoMediaHash,
 } from '../../../global/helpers';
 import buildClassName from '../../../util/buildClassName';
 import { formatMediaDuration } from '../../../util/dates/dateFormat';
@@ -25,7 +22,7 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useMedia from '../../../hooks/useMedia';
 import useMediaTransition from '../../../hooks/useMediaTransition';
 import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
-import usePrevious from '../../../hooks/usePrevious';
+import usePreviousDeprecated from '../../../hooks/usePreviousDeprecated';
 import useShowTransition from '../../../hooks/useShowTransition';
 import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 
@@ -130,12 +127,12 @@ const Video = <T,>({
   const [isPreviewPreloaded] = useState(Boolean(previewMediaHash && mediaLoader.getFromMemory(previewMediaHash)));
   const canLoadPreview = isIntersectingForLoading;
   const previewBlobUrl = useMedia(previewMediaHash, !canLoadPreview);
-  const previewClassNames = useMediaTransition((hasThumb || previewBlobUrl) && !isPlayerReady);
+  const previewRef = useMediaTransition<HTMLImageElement>((hasThumb || previewBlobUrl) && !isPlayerReady);
 
   const noThumb = Boolean(!hasThumb || previewBlobUrl || isPlayerReady);
   const thumbRef = useBlurredMediaThumbRef(video, noThumb);
+  useMediaTransition(!noThumb, { ref: thumbRef });
   const blurredBackgroundRef = useBlurredMediaThumbRef(video, !withBlurredBackground);
-  const thumbClassNames = useMediaTransition(!noThumb);
 
   const isInline = fullMediaData && wasIntersectedRef.current;
 
@@ -152,14 +149,20 @@ const Video = <T,>({
     uploadProgress !== undefined,
   );
 
-  const wasLoadDisabled = usePrevious(isLoadAllowed) === false;
+  const wasLoadDisabled = usePreviousDeprecated(isLoadAllowed) === false;
   const {
+    ref: spinnerRef,
     shouldRender: shouldRenderSpinner,
-    transitionClassNames: spinnerClassNames,
-  } = useShowTransition(isTransferring && !isUnsupported, undefined, wasLoadDisabled);
+  } = useShowTransition({
+    isOpen: isTransferring && !isUnsupported,
+    noMountTransition: wasLoadDisabled,
+    withShouldRender: true,
+  });
   const {
-    transitionClassNames: playButtonClassNames,
-  } = useShowTransition(Boolean((isLoadAllowed || fullMediaData) && !isPlayAllowed && !shouldRenderSpinner));
+    ref: playButtonRef,
+  } = useShowTransition({
+    isOpen: Boolean((isLoadAllowed || fullMediaData) && !isPlayAllowed && !shouldRenderSpinner),
+  });
 
   const [playProgress, setPlayProgress] = useState<number>(0);
   const handleTimeUpdate = useLastCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -235,7 +238,7 @@ const Video = <T,>({
       onClick={isUploading ? undefined : (e) => handleClick(e)}
     >
       {withBlurredBackground && (
-        <canvas ref={blurredBackgroundRef} className="thumbnail canvas-blur-setup blurred-bg" />
+        <canvas ref={blurredBackgroundRef} className="thumbnail blurred-bg" />
       )}
       {isInline && (
         <OptimizedVideo
@@ -253,20 +256,18 @@ const Video = <T,>({
         />
       )}
       <img
+        ref={previewRef}
         src={previewBlobUrl}
-        className={buildClassName('thumbnail', previewClassNames, withBlurredBackground && 'with-blurred-bg')}
+        className={buildClassName('thumbnail', withBlurredBackground && 'with-blurred-bg')}
         alt=""
         style={forcedWidth ? `width: ${forcedWidth}px;` : undefined}
         draggable={!isProtected}
       />
       {hasThumb && !isPreviewPreloaded && (
-        <canvas
-          ref={thumbRef}
-          className={buildClassName('thumbnail', !noThumb && 'canvas-blur-setup', thumbClassNames)}
-        />
+        <canvas ref={thumbRef} className="thumbnail" />
       )}
       {isProtected && <span className="protector" />}
-      <i className={buildClassName('icon', 'icon-large-play', playButtonClassNames)} />
+      <i ref={playButtonRef} className="icon icon-large-play" />
       <MediaSpoiler
         isVisible={isSpoilerShown}
         withAnimation
@@ -276,7 +277,7 @@ const Video = <T,>({
         className="media-spoiler"
       />
       {shouldRenderSpinner && (
-        <div className={buildClassName('media-loading', spinnerClassNames)}>
+        <div ref={spinnerRef} className="media-loading">
           <ProgressSpinner
             progress={transferProgress}
             onClick={handleClickOnSpinner}

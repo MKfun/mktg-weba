@@ -8,7 +8,7 @@ import { selectTabState } from '../../selectors';
 
 addActionHandler('openMediaViewer', (global, actions, payload): ActionReturnType => {
   const {
-    chatId, threadId = MAIN_THREAD_ID, messageId, mediaIndex, isAvatarView, origin,
+    chatId, threadId = MAIN_THREAD_ID, messageId, mediaIndex, isAvatarView, isSponsoredMessage, origin,
     withDynamicLoading, standaloneMedia, tabId = getCurrentTabId(),
   } = payload;
 
@@ -22,12 +22,14 @@ addActionHandler('openMediaViewer', (global, actions, payload): ActionReturnType
       messageId,
       mediaIndex: mediaIndex || 0,
       isAvatarView,
+      isSponsoredMessage,
       origin,
       standaloneMedia,
       isHidden: false,
       withDynamicLoading,
     },
     forwardMessages: {},
+    isShareMessageModalShown: false,
   }, tabId);
 });
 

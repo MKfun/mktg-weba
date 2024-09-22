@@ -1,26 +1,19 @@
 import '../../global/actions/all';
 
-import type { FC } from '../../lib/teact/teact';
 import React, {
+  beginHeavyAnimation,
   memo, useEffect, useLayoutEffect,
   useRef, useState,
 } from '../../lib/teact/teact';
 import { addExtraClass } from '../../lib/teact/teact-dom';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
-import type {
-  ApiChat,
-  ApiChatFolder,
-  ApiMessage,
-  ApiUser,
-} from '../../api/types';
+import type { ApiChatFolder, ApiMessage, ApiUser } from '../../api/types';
 import type { ApiLimitTypeWithModal, TabState } from '../../global/types';
 import type { LangCode } from '../../types';
 import { ElectronEvent } from '../../types/electron';
 
-import {
-  BASE_EMOJI_KEYWORD_LANG, DEBUG, INACTIVE_MARKER,
-} from '../../config';
+import { BASE_EMOJI_KEYWORD_LANG, DEBUG, INACTIVE_MARKER } from '../../config';
 import { requestNextMutation } from '../../lib/fasterdom/fasterdom';
 import {
   selectCanAnimateInterface,
@@ -50,7 +43,6 @@ import useInterval from '../../hooks/schedulers/useInterval';
 import useTimeout from '../../hooks/schedulers/useTimeout';
 import useAppLayout from '../../hooks/useAppLayout';
 import useForceUpdate from '../../hooks/useForceUpdate';
-import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import useLastCallback from '../../hooks/useLastCallback';
 import usePreventPinchZoomGesture from '../../hooks/usePreventPinchZoomGesture';
 import useShowTransition from '../../hooks/useShowTransition';
@@ -64,6 +56,7 @@ import GroupCall from '../calls/group/GroupCall.async';
 import PhoneCall from '../calls/phone/PhoneCall.async';
 import RatePhoneCallModal from '../calls/phone/RatePhoneCallModal.async';
 import CustomEmojiSetsModal from '../common/CustomEmojiSetsModal.async';
+import DeleteMessageModal from '../common/DeleteMessageModal.async';
 import StickerSetModal from '../common/StickerSetModal.async';
 import UnreadCount from '../common/UnreadCounter';
 import LeftColumn from '../left/LeftColumn';
@@ -91,8 +84,9 @@ import NewContactModal from './NewContactModal.async';
 import Notifications from './Notifications.async';
 import PremiumLimitReachedModal from './premium/common/PremiumLimitReachedModal.async';
 import GiveawayModal from './premium/GiveawayModal.async';
-import PremiumGiftingModal from './premium/PremiumGiftingModal.async';
+import PremiumGiftingPickerModal from './premium/PremiumGiftingPickerModal.async';
 import PremiumMainModal from './premium/PremiumMainModal.async';
+import StarsGiftingPickerModal from './premium/StarsGiftingPickerModal.async';
 import SafeLinkModal from './SafeLinkModal.async';
 
 import './Main.scss';
@@ -103,7 +97,6 @@ export interface OwnProps {
 
 type StateProps = {
   isMasterTab?: boolean;
-  chat?: ApiChat;
   currentUserId?: string;
   isLeftColumnOpen: boolean;
   isMiddleColumnOpen: boolean;
@@ -141,9 +134,10 @@ type StateProps = {
   isPaymentModalOpen?: boolean;
   isReceiptModalOpen?: boolean;
   isReactionPickerOpen: boolean;
-  isAppendModalOpen?: boolean;
   isGiveawayModalOpen?: boolean;
-  isPremiumGiftingModalOpen?: boolean;
+  isDeleteMessageModalOpen?: boolean;
+  isPremiumGiftingPickerModal?: boolean;
+  isStarsGiftingPickerModal?: boolean;
   isCurrentUserPremium?: boolean;
   noRightColumnAnimation?: boolean;
   withInterfaceAnimations?: boolean;
@@ -156,7 +150,7 @@ const CALL_BUNDLE_LOADING_DELAY_MS = 5000; // 5 sec
 // eslint-disable-next-line @typescript-eslint/naming-convention
 let DEBUG_isLogged = false;
 
-const Main: FC<OwnProps & StateProps> = ({
+const Main = ({
   isMobile,
   isLeftColumnOpen,
   isMiddleColumnOpen,
@@ -192,7 +186,9 @@ const Main: FC<OwnProps & StateProps> = ({
   requestedDraft,
   isPremiumModalOpen,
   isGiveawayModalOpen,
-  isPremiumGiftingModalOpen,
+  isDeleteMessageModalOpen,
+  isPremiumGiftingPickerModal,
+  isStarsGiftingPickerModal,
   isPaymentModalOpen,
   isReceiptModalOpen,
   isReactionPickerOpen,
@@ -202,7 +198,7 @@ const Main: FC<OwnProps & StateProps> = ({
   noRightColumnAnimation,
   isSynced,
   currentUserId,
-}) => {
+}: OwnProps & StateProps) => {
   const {
     initMain,
     loadAnimatedEmojis,
@@ -250,6 +246,7 @@ const Main: FC<OwnProps & StateProps> = ({
     loadQuickReplies,
     loadStarStatus,
     loadAvailableEffects,
+    loadTopBotApps,
   } = getActions();
 
   if (DEBUG && !DEBUG_isLogged) {
@@ -332,6 +329,7 @@ const Main: FC<OwnProps & StateProps> = ({
       loadGenericEmojiEffects();
       loadSavedReactionTags();
       loadAuthorizations();
+      loadTopBotApps();
     }
   }, [isMasterTab, isSynced]);
 
@@ -426,9 +424,12 @@ const Main: FC<OwnProps & StateProps> = ({
     }
   }, []);
 
-  const leftColumnTransition = useShowTransition(
-    isLeftColumnOpen, undefined, true, undefined, shouldSkipHistoryAnimations, undefined, true,
-  );
+  useShowTransition({
+    ref: containerRef,
+    isOpen: isLeftColumnOpen,
+    noCloseTransition: shouldSkipHistoryAnimations,
+    prefix: 'left-column-',
+  });
   const willAnimateLeftColumnRef = useRef(false);
   const forceUpdate = useForceUpdate();
 
@@ -446,18 +447,21 @@ const Main: FC<OwnProps & StateProps> = ({
       });
     }
 
-    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+    const endHeavyAnimation = beginHeavyAnimation();
 
     waitForTransitionEnd(document.getElementById('MiddleColumn')!, () => {
-      dispatchHeavyAnimationEnd();
+      endHeavyAnimation();
       willAnimateLeftColumnRef.current = false;
       forceUpdate();
     });
   }, [isLeftColumnOpen, withInterfaceAnimations, forceUpdate]);
 
-  const rightColumnTransition = useShowTransition(
-    isRightColumnOpen, undefined, true, undefined, shouldSkipHistoryAnimations, undefined, true,
-  );
+  useShowTransition({
+    ref: containerRef,
+    isOpen: isRightColumnOpen,
+    noCloseTransition: shouldSkipHistoryAnimations,
+    prefix: 'right-column-',
+  });
   const willAnimateRightColumnRef = useRef(false);
   const [isNarrowMessageList, setIsNarrowMessageList] = useState(isRightColumnOpen);
 
@@ -476,10 +480,10 @@ const Main: FC<OwnProps & StateProps> = ({
 
     willAnimateRightColumnRef.current = true;
 
-    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+    const endHeavyAnimation = beginHeavyAnimation();
 
     waitForTransitionEnd(document.getElementById('RightColumn')!, () => {
-      dispatchHeavyAnimationEnd();
+      endHeavyAnimation();
       willAnimateRightColumnRef.current = false;
       forceUpdate();
       setIsNarrowMessageList(isRightColumnOpen);
@@ -487,11 +491,7 @@ const Main: FC<OwnProps & StateProps> = ({
   }, [isMiddleColumnOpen, isRightColumnOpen, noRightColumnAnimation, forceUpdate]);
 
   const className = buildClassName(
-    leftColumnTransition.hasShownClass && 'left-column-shown',
-    leftColumnTransition.hasOpenClass && 'left-column-open',
     willAnimateLeftColumnRef.current && 'left-column-animating',
-    rightColumnTransition.hasShownClass && 'right-column-shown',
-    rightColumnTransition.hasOpenClass && 'right-column-open',
     willAnimateRightColumnRef.current && 'right-column-animating',
     isNarrowMessageList && 'narrow-message-list',
     shouldSkipHistoryAnimations && 'history-animation-disabled',
@@ -571,12 +571,14 @@ const Main: FC<OwnProps & StateProps> = ({
       <MessageListHistoryHandler />
       {isPremiumModalOpen && <PremiumMainModal isOpen={isPremiumModalOpen} />}
       {isGiveawayModalOpen && <GiveawayModal isOpen={isGiveawayModalOpen} />}
-      {isPremiumGiftingModalOpen && <PremiumGiftingModal isOpen={isPremiumGiftingModalOpen} />}
+      {isPremiumGiftingPickerModal && <PremiumGiftingPickerModal isOpen={isPremiumGiftingPickerModal} />}
+      {isStarsGiftingPickerModal && <StarsGiftingPickerModal isOpen={isStarsGiftingPickerModal} />}
       <PremiumLimitReachedModal limit={limitReached} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={closePaymentModal} />
       <ReceiptModal isOpen={isReceiptModalOpen} onClose={clearReceipt} />
       <DeleteFolderDialog folder={deleteFolderDialog} />
       <ReactionPicker isOpen={isReactionPickerOpen} />
+      <DeleteMessageModal isOpen={isDeleteMessageModalOpen} />
     </div>
   );
 };
@@ -610,7 +612,9 @@ export default memo(withGlobal<OwnProps>(
       ratingPhoneCall,
       premiumModal,
       giveawayModal,
+      deleteMessageModal,
       giftingModal,
+      starsGiftingModal,
       isMasterTab,
       payment,
       limitReachedModal,
@@ -665,7 +669,9 @@ export default memo(withGlobal<OwnProps>(
       isCurrentUserPremium: selectIsCurrentUserPremium(global),
       isPremiumModalOpen: premiumModal?.isOpen,
       isGiveawayModalOpen: giveawayModal?.isOpen,
-      isPremiumGiftingModalOpen: giftingModal?.isOpen,
+      isDeleteMessageModalOpen: Boolean(deleteMessageModal),
+      isPremiumGiftingPickerModal: giftingModal?.isOpen,
+      isStarsGiftingPickerModal: starsGiftingModal?.isOpen,
       limitReached: limitReachedModal?.limit,
       isPaymentModalOpen: payment.isPaymentModalOpen,
       isReceiptModalOpen: Boolean(payment.receipt),

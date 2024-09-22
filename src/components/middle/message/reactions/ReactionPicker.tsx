@@ -5,15 +5,25 @@ import { getActions, getGlobal, withGlobal } from '../../../../global';
 import type { IAnchorPosition } from '../../../../types';
 import {
   type ApiAvailableEffect,
-  type ApiMessage, type ApiMessageEntity,
-  type ApiReaction, type ApiReactionCustomEmoji, type ApiSticker, type ApiStory, type ApiStorySkipped,
+  type ApiMessage,
+  type ApiMessageEntity,
+  type ApiReaction,
+  type ApiReactionCustomEmoji,
+  type ApiSticker,
+  type ApiStory,
+  type ApiStorySkipped,
   MAIN_THREAD_ID,
 } from '../../../../api/types';
 
 import { getReactionKey, getStoryKey, isUserId } from '../../../../global/helpers';
 import {
-  selectChat, selectChatFullInfo, selectChatMessage, selectIsContextMenuTranslucent, selectIsCurrentUserPremium,
-  selectPeerStory, selectTabState,
+  selectChat,
+  selectChatFullInfo,
+  selectChatMessage,
+  selectIsContextMenuTranslucent,
+  selectIsCurrentUserPremium,
+  selectPeerStory,
+  selectTabState,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import parseHtmlAsFormattedText from '../../../../util/parseHtmlAsFormattedText';
@@ -23,7 +33,6 @@ import { buildCustomEmojiHtml } from '../../composer/helpers/customEmoji';
 import { getIsMobile } from '../../../../hooks/useAppLayout';
 import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useMenuPosition from '../../../../hooks/useMenuPosition';
 import useOldLang from '../../../../hooks/useOldLang';
 
 import CustomEmojiPicker from '../../../common/CustomEmojiPicker';
@@ -38,7 +47,7 @@ export type OwnProps = {
 };
 
 interface StateProps {
-  withCustomReactions?: boolean;
+  shouldUseFullPicker?: boolean;
   message?: ApiMessage;
   story?: ApiStory | ApiStorySkipped;
   isCurrentUserPremium?: boolean;
@@ -61,7 +70,7 @@ const ReactionPicker: FC<OwnProps & StateProps> = ({
   position,
   isTranslucent,
   isCurrentUserPremium,
-  withCustomReactions,
+  shouldUseFullPicker,
   sendAsMessage,
   chatId,
   isForEffects,
@@ -91,10 +100,10 @@ const ReactionPicker: FC<OwnProps & StateProps> = ({
     }
 
     return {
-      x: storedPosition.x + (withCustomReactions ? FULL_PICKER_SHIFT_DELTA.x : LIMITED_PICKER_SHIFT_DELTA.x),
-      y: storedPosition.y + (withCustomReactions ? FULL_PICKER_SHIFT_DELTA.y : LIMITED_PICKER_SHIFT_DELTA.y),
+      x: storedPosition.x + (shouldUseFullPicker ? FULL_PICKER_SHIFT_DELTA.x : LIMITED_PICKER_SHIFT_DELTA.x),
+      y: storedPosition.y + (shouldUseFullPicker ? FULL_PICKER_SHIFT_DELTA.y : LIMITED_PICKER_SHIFT_DELTA.y),
     };
-  }, [renderedStoryId, storedPosition, withCustomReactions]);
+  }, [renderedStoryId, storedPosition, shouldUseFullPicker]);
 
   const getMenuElement = useLastCallback(() => menuRef.current);
   const getLayout = useLastCallback(() => ({
@@ -104,9 +113,6 @@ const ReactionPicker: FC<OwnProps & StateProps> = ({
       ? -(menuRef.current.offsetWidth - REACTION_SELECTOR_WIDTH) / 2 - FULL_PICKER_SHIFT_DELTA.x / 2
       : 0,
   }));
-  const {
-    positionX, positionY, transformOriginX, transformOriginY, style,
-  } = useMenuPosition(renderingPosition, getTriggerElement, getRootElement, getMenuElement, getLayout);
 
   const handleToggleCustomReaction = useLastCallback((sticker: ApiSticker) => {
     if (!renderedChatId || !renderedMessageId) {
@@ -208,16 +214,16 @@ const ReactionPicker: FC<OwnProps & StateProps> = ({
       className={buildClassName(styles.menu, 'ReactionPicker')}
       bubbleClassName={buildClassName(
         styles.menuContent,
-        !withCustomReactions && !renderedStoryId && styles.onlyReactions,
+        !shouldUseFullPicker && !renderedStoryId && styles.onlyReactions,
         renderedStoryId && styles.storyMenu,
       )}
       withPortal
       noCompact
-      positionX={positionX}
-      positionY={positionY}
-      transformOriginX={transformOriginX}
-      transformOriginY={transformOriginY}
-      style={style}
+      anchor={renderingPosition}
+      getTriggerElement={getTriggerElement}
+      getRootElement={getRootElement}
+      getMenuElement={getMenuElement}
+      getLayout={getLayout}
       backdropExcludedSelector=".Modal.confirm"
       onClose={closeReactionPicker}
     >
@@ -225,7 +231,7 @@ const ReactionPicker: FC<OwnProps & StateProps> = ({
         <StickerPicker
           className=""
           isHidden={!isOpen}
-          loadAndPlay={Boolean(isOpen && withCustomReactions)}
+          loadAndPlay={Boolean(isOpen && shouldUseFullPicker)}
           idPrefix="message-effect"
           canSendStickers={false}
           noContextMenus={false}
@@ -239,21 +245,22 @@ const ReactionPicker: FC<OwnProps & StateProps> = ({
           <CustomEmojiPicker
             chatId={renderedChatId}
             idPrefix="message-emoji-set-"
-            isHidden={!isOpen || !(withCustomReactions || renderedStoryId)}
-            loadAndPlay={Boolean(isOpen && withCustomReactions)}
+            isHidden={!isOpen || !(shouldUseFullPicker || renderedStoryId)}
+            loadAndPlay={Boolean(isOpen && shouldUseFullPicker)}
             isReactionPicker
-            className={!withCustomReactions && !renderedStoryId ? styles.hidden : undefined}
+            className={!shouldUseFullPicker && !renderedStoryId ? styles.hidden : undefined}
             selectedReactionIds={selectedReactionIds}
             isTranslucent={isTranslucent}
             onCustomEmojiSelect={renderedStoryId ? handleStoryReactionSelect : handleToggleCustomReaction}
             onReactionSelect={renderedStoryId ? handleStoryReactionSelect : handleToggleReaction}
           />
-          {!withCustomReactions && Boolean(renderedChatId) && (
+          {!shouldUseFullPicker && Boolean(renderedChatId) && (
             <ReactionPickerLimited
               chatId={renderedChatId}
               loadAndPlay={isOpen}
               onReactionSelect={renderedStoryId ? handleStoryReactionSelect : handleToggleReaction}
               selectedReactionIds={selectedReactionIds}
+              message={message}
             />
           )}
         </>
@@ -276,16 +283,20 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const message = chatId && messageId ? selectChatMessage(global, chatId, messageId) : undefined;
   const isPrivateChat = isUserId(chatId || storyPeerId || '');
   const areSomeReactionsAllowed = chatFullInfo?.enabledReactions?.type === 'some';
-  const areCustomReactionsAllowed = chatFullInfo?.enabledReactions?.type === 'all'
-    && chatFullInfo?.enabledReactions?.areCustomAllowed;
+  const { maxUniqueReactions } = global.appConfig || {};
+  const areAllReactionsAllowed = chatFullInfo?.enabledReactions?.type === 'all'
+  && chatFullInfo?.enabledReactions?.areCustomAllowed;
+
+  const currentReactions = message?.reactions?.results;
+  const shouldUseCurrentReactions = Boolean(maxUniqueReactions && currentReactions
+    && currentReactions.length >= maxUniqueReactions);
 
   return {
     message,
     story,
     position,
-    withCustomReactions: chat?.isForbidden || areSomeReactionsAllowed
-      ? false
-      : areCustomReactionsAllowed || isPrivateChat,
+    shouldUseFullPicker: (chat?.isForbidden || areSomeReactionsAllowed || shouldUseCurrentReactions) ? false
+      : (areAllReactionsAllowed || isPrivateChat),
     isTranslucent: selectIsContextMenuTranslucent(global),
     isCurrentUserPremium: selectIsCurrentUserPremium(global),
     sendAsMessage,

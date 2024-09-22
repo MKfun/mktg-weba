@@ -1,5 +1,5 @@
 import type { FC, TeactNode } from '../../lib/teact/teact';
-import React, { useEffect, useRef } from '../../lib/teact/teact';
+import React, { beginHeavyAnimation, useEffect } from '../../lib/teact/teact';
 
 import type { TextPart } from '../../types';
 
@@ -9,7 +9,6 @@ import { disableDirectTextInput, enableDirectTextInput } from '../../util/direct
 import freezeWhenClosed from '../../util/hoc/freezeWhenClosed';
 import trapFocus from '../../util/trapFocus';
 
-import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLastCallback from '../../hooks/useLastCallback';
 import useLayoutEffectWithPrevDeps from '../../hooks/useLayoutEffectWithPrevDeps';
@@ -24,10 +23,11 @@ import './Modal.scss';
 
 export const ANIMATION_DURATION = 200;
 
-type OwnProps = {
+export type OwnProps = {
   title?: string | TextPart[];
   className?: string;
   contentClassName?: string;
+  headerClassName?: string;
   isOpen?: boolean;
   header?: TeactNode;
   isSlim?: boolean;
@@ -37,21 +37,19 @@ type OwnProps = {
   noBackdropClose?: boolean;
   children: React.ReactNode;
   style?: string;
+  dialogRef?: React.RefObject<HTMLDivElement>;
+  isLowStackPriority?: boolean;
   onClose: () => void;
   onCloseAnimationEnd?: () => void;
   onEnter?: () => void;
-  dialogRef?: React.RefObject<HTMLDivElement>;
 };
 
-type StateProps = {
-  shouldSkipHistoryAnimations?: boolean;
-};
-
-const Modal: FC<OwnProps & StateProps> = ({
+const Modal: FC<OwnProps> = ({
   dialogRef,
   title,
   className,
   contentClassName,
+  headerClassName,
   isOpen,
   isSlim,
   header,
@@ -61,19 +59,20 @@ const Modal: FC<OwnProps & StateProps> = ({
   noBackdropClose,
   children,
   style,
+  isLowStackPriority,
   onClose,
   onCloseAnimationEnd,
   onEnter,
-  shouldSkipHistoryAnimations,
 }) => {
   const {
+    ref: modalRef,
     shouldRender,
-    transitionClassNames,
-  } = useShowTransition(
-    isOpen, onCloseAnimationEnd, shouldSkipHistoryAnimations, undefined, shouldSkipHistoryAnimations,
-  );
-  // eslint-disable-next-line no-null/no-null
-  const modalRef = useRef<HTMLDivElement>(null);
+  } = useShowTransition({
+    isOpen,
+    onCloseAnimationEnd,
+    withShouldRender: true,
+  });
+
   const withCloseButton = hasCloseButton || hasAbsoluteCloseButton;
 
   useEffect(() => {
@@ -99,7 +98,7 @@ const Modal: FC<OwnProps & StateProps> = ({
   useEffect(() => (
     isOpen ? captureKeyboardListeners({ onEsc: onClose, onEnter: handleEnter }) : undefined
   ), [isOpen, onClose, handleEnter]);
-  useEffect(() => (isOpen && modalRef.current ? trapFocus(modalRef.current) : undefined), [isOpen]);
+  useEffect(() => (isOpen && modalRef.current ? trapFocus(modalRef.current) : undefined), [isOpen, modalRef]);
 
   useHistoryBack({
     isActive: isOpen,
@@ -110,7 +109,7 @@ const Modal: FC<OwnProps & StateProps> = ({
     document.body.classList.toggle('has-open-dialog', Boolean(isOpen));
 
     if (isOpen || (!isOpen && prevIsOpen !== undefined)) {
-      dispatchHeavyAnimationEvent(ANIMATION_DURATION);
+      beginHeavyAnimation(ANIMATION_DURATION);
     }
 
     return () => {
@@ -132,7 +131,7 @@ const Modal: FC<OwnProps & StateProps> = ({
     if (!title && !withCloseButton) return undefined;
 
     return (
-      <div className="modal-header">
+      <div className={buildClassName('modal-header', headerClassName)}>
         {withCloseButton && (
           <Button
             className={buildClassName(hasAbsoluteCloseButton && 'modal-absolute-close-button')}
@@ -153,9 +152,9 @@ const Modal: FC<OwnProps & StateProps> = ({
   const fullClassName = buildClassName(
     'Modal',
     className,
-    transitionClassNames,
     noBackdrop && 'transparent-backdrop',
     isSlim && 'slim',
+    isLowStackPriority && 'low-priority',
   );
 
   return (

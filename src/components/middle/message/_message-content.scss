@@ -40,6 +40,10 @@
   .content-unsupported {
     font-style: italic;
     color: var(--color-text-meta);
+
+    .Message.own & {
+      color: var(--color-message-meta-own);
+    }
   }
 
   .text-content,
@@ -169,6 +173,7 @@
     line-height: 1;
     height: calc(var(--message-meta-height, 1rem));
     margin-left: auto;
+    margin-top: -0.5rem;
     margin-right: -0.5rem;
     align-self: flex-end;
 
@@ -915,7 +920,7 @@
   --border-bottom-left-radius: var(--border-radius-messages-small);
   --border-bottom-right-radius: var(--border-radius-messages-small);
 
-  > .media-inner {
+  .media-inner {
     margin: 0 !important;
     margin-bottom: 0.25rem !important;
   }
@@ -935,7 +940,7 @@
   }
 }
 
-.long-word-break-all {
+.word-break-all {
   word-break: break-all;
 }
 
@@ -997,6 +1002,7 @@ blockquote, .blockquote {
   overflow: hidden;
   background-color: var(--accent-background-color);
   white-space: pre-wrap;
+  font-size: calc(var(--message-text-size, 1rem) - 0.125rem);
 
   &::before {
     content: "";

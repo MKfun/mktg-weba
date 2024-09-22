@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import type { FC } from '../../lib/teact/teact';
-import React, { memo } from '../../lib/teact/teact';
+import React, { getIsHeavyAnimating, memo } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { MessageListType } from '../../global/types';
@@ -12,7 +12,11 @@ import { MAIN_THREAD_ID } from '../../api/types';
 
 import { SCHEDULED_WHEN_ONLINE } from '../../config';
 import {
-  getMessageHtmlId, getMessageOriginalId, isActionMessage, isOwnMessage, isServiceNotificationMessage,
+  getMessageHtmlId,
+  getMessageOriginalId,
+  isActionMessage,
+  isOwnMessage,
+  isServiceNotificationMessage,
 } from '../../global/helpers';
 import buildClassName from '../../util/buildClassName';
 import { formatHumanDate } from '../../util/dates/dateFormat';
@@ -22,7 +26,7 @@ import { preventMessageInputBlur } from './helpers/preventMessageInputBlur';
 
 import useDerivedSignal from '../../hooks/useDerivedSignal';
 import useOldLang from '../../hooks/useOldLang';
-import usePrevious from '../../hooks/usePrevious';
+import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
 import useMessageObservers from './hooks/useMessageObservers';
 import useScrollHooks from './hooks/useScrollHooks';
 
@@ -94,7 +98,9 @@ const MessageListContent: FC<OwnProps> = ({
 }) => {
   const { openHistoryCalendar } = getActions();
 
-  const getIsReady = useDerivedSignal(isReady);
+  const getIsHeavyAnimating2 = getIsHeavyAnimating;
+  const getIsReady = useDerivedSignal(() => isReady && !getIsHeavyAnimating2(), [isReady, getIsHeavyAnimating2]);
+
   const areDatesClickable = !isSavedDialog && !isSchedule;
 
   const {
@@ -132,7 +138,7 @@ const MessageListContent: FC<OwnProps> = ({
   }, 0);
   let appearanceIndex = 0;
 
-  const prevMessageIds = usePrevious(messageIds);
+  const prevMessageIds = usePreviousDeprecated(messageIds);
   const isNewMessage = Boolean(
     messageIds && prevMessageIds && messageIds[messageIds.length - 2] === prevMessageIds[prevMessageIds.length - 1],
   );
@@ -291,7 +297,13 @@ const MessageListContent: FC<OwnProps> = ({
       {shouldRenderBotInfo && <MessageListBotInfo isInMessageList key={`bot_info_${chatId}`} chatId={chatId} />}
       {dateGroups.flat()}
       {areAdsEnabled && isViewportNewest && (
-        <SponsoredMessage key={chatId} chatId={chatId} containerRef={containerRef} />
+        <SponsoredMessage
+          key={chatId}
+          chatId={chatId}
+          containerRef={containerRef}
+          observeIntersectionForLoading={observeIntersectionForLoading}
+          observeIntersectionForPlaying={observeIntersectionForPlaying}
+        />
       )}
       {withHistoryTriggers && (
         <div

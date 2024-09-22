@@ -9,11 +9,13 @@ import buildClassName from '../../../util/buildClassName';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 import Avatar from '../../common/Avatar';
-import PickerSelectedItem from '../../common/PickerSelectedItem';
+import PickerSelectedItem from '../../common/pickers/PickerSelectedItem';
 import Button from '../../ui/Button';
 import Modal from '../../ui/Modal';
 
 import styles from './TableInfoModal.module.scss';
+
+import StarsBackground from '../../../assets/stars-bg.png';
 
 type ChatItem = { chatId: string };
 
@@ -24,9 +26,11 @@ type OwnProps = {
   title?: string;
   tableData?: TableData;
   headerImageUrl?: string;
+  logoBackground?: string;
   headerAvatarPeer?: ApiPeer | CustomPeer;
   headerAvatarWebPhoto?: ApiWebDocument;
   noHeaderImage?: boolean;
+  isGift?: boolean;
   header?: TeactNode;
   footer?: TeactNode;
   buttonText?: string;
@@ -40,9 +44,11 @@ const TableInfoModal = ({
   title,
   tableData,
   headerImageUrl,
+  logoBackground,
   headerAvatarPeer,
   headerAvatarWebPhoto,
   noHeaderImage,
+  isGift,
   header,
   footer,
   buttonText,
@@ -69,11 +75,15 @@ const TableInfoModal = ({
       contentClassName={styles.content}
       onClose={onClose}
     >
-      {!noHeaderImage && (
+      {!isGift && !noHeaderImage && (
         withAvatar ? (
           <Avatar peer={headerAvatarPeer} webPhoto={headerAvatarWebPhoto} size="jumbo" className={styles.avatar} />
         ) : (
-          <img className={styles.logo} src={headerImageUrl} alt="" draggable={false} />
+          <div className={styles.section}>
+            <img className={styles.logo} src={headerImageUrl} alt="" draggable={false} />
+            {Boolean(logoBackground)
+              && <img className={styles.logoBackground} src={StarsBackground} alt="" draggable={false} />}
+          </div>
         )
       )}
       {header}
@@ -98,7 +108,7 @@ const TableInfoModal = ({
       </table>
       {footer}
       {buttonText && (
-        <Button onClick={onButtonClick || onClose}>{buttonText}</Button>
+        <Button size="smaller" onClick={onButtonClick || onClose}>{buttonText}</Button>
       )}
     </Modal>
   );

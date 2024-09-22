@@ -1,5 +1,10 @@
 import type {
-  ApiInputInvoice, ApiRequestInputInvoice, ApiStarsTransactionPeer, ApiStarsTransactionPeerPeer,
+  ApiInputInvoice,
+  ApiMessage,
+  ApiRequestInputInvoice,
+  ApiStarsTransaction,
+  ApiStarsTransactionPeer,
+  ApiStarsTransactionPeerPeer,
 } from '../../api/types';
 import type { CustomPeer } from '../../types';
 import type { GlobalState } from '../types';
@@ -10,7 +15,43 @@ import { selectChat, selectUser } from '../selectors';
 export function getRequestInputInvoice<T extends GlobalState>(
   global: T, inputInvoice: ApiInputInvoice,
 ): ApiRequestInputInvoice | undefined {
-  if (inputInvoice.type === 'slug' || inputInvoice.type === 'stars') return inputInvoice;
+  if (inputInvoice.type === 'slug') return inputInvoice;
+
+  if (inputInvoice.type === 'starsgift') {
+    const {
+      userId, stars, amount, currency,
+    } = inputInvoice;
+    const user = selectUser(global, userId);
+
+    if (!user) return undefined;
+
+    return {
+      type: 'stars',
+      purpose: {
+        type: 'starsgift',
+        user,
+        stars,
+        amount,
+        currency,
+      },
+    };
+  }
+
+  if (inputInvoice.type === 'stars') {
+    const {
+      stars, amount, currency,
+    } = inputInvoice;
+
+    return {
+      type: 'stars',
+      purpose: {
+        type: 'stars',
+        stars,
+        amount,
+        currency,
+      },
+    };
+  }
 
   if (inputInvoice.type === 'message') {
     const chat = selectChat(global, inputInvoice.chatId);
@@ -105,7 +146,7 @@ export function buildStarsTransactionCustomPeer(
       isCustomPeer: true,
       titleKey: 'Stars.Intro.Transaction.FragmentTopUp.Title',
       subtitleKey: 'Stars.Intro.Transaction.FragmentTopUp.Subtitle',
-      peerColorId: -1, // Defaults to black
+      customPeerAvatarColor: '#000000',
     };
   }
 
@@ -145,4 +186,24 @@ export function formatStarsTransactionAmount(amount: number) {
   }
 
   return `+ ${formatInteger(amount)}`;
+}
+
+export function getStarsTransactionFromGift(message: ApiMessage): ApiStarsTransaction | undefined {
+  const { action } = message.content;
+
+  if (action?.type !== 'giftStars') return undefined;
+
+  const { transactionId, stars } = action;
+
+  return {
+    id: transactionId!,
+    stars: stars!,
+    peer: {
+      type: 'peer',
+      id: message.isOutgoing ? message.chatId : (message.senderId || message.chatId),
+    },
+    date: message.date,
+    isGift: true,
+    isMyGift: message.isOutgoing || undefined,
+  };
 }

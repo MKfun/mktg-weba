@@ -16,7 +16,7 @@ import {
 } from '../../global/helpers';
 import {
   selectActiveDownloads,
-  selectAllowedMessageActions,
+  selectAllowedMessageActionsSlow,
   selectCurrentMessageList,
   selectIsChatProtected,
   selectIsMessageProtected,
@@ -31,7 +31,6 @@ import useMediaWithLoadProgress from '../../hooks/useMediaWithLoadProgress';
 import useOldLang from '../../hooks/useOldLang';
 import useZoomChange from './hooks/useZoomChangeSignal';
 
-import DeleteMessageModal from '../common/DeleteMessageModal';
 import DeleteProfilePhotoModal from '../common/DeleteProfilePhotoModal';
 import Button from '../ui/Button';
 import DropdownMenu from '../ui/DropdownMenu';
@@ -90,6 +89,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
     updateProfilePhoto,
     updateChatPhoto,
     openMediaViewer,
+    openDeleteMessageModal,
   } = getActions();
 
   const isMessage = item?.type === 'message';
@@ -110,7 +110,8 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
     if (isDownloading) {
       cancelMediaDownload({ media });
     } else {
-      downloadMedia({ media });
+      const message = item?.type === 'message' ? item.message : undefined;
+      downloadMedia({ media, originMessage: message });
     }
   });
 
@@ -128,8 +129,8 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
 
   const handleUpdate = useLastCallback(() => {
     if (item?.type !== 'avatar') return;
-    const { avatarOwner, mediaIndex } = item;
-    const avatarPhoto = avatarOwner.photos?.[mediaIndex]!;
+    const { avatarOwner, profilePhotos, mediaIndex } = item;
+    const avatarPhoto = profilePhotos?.photos[mediaIndex]!;
     if (isUserId(avatarOwner.id)) {
       updateProfilePhoto({ photo: avatarPhoto });
     } else {
@@ -163,31 +164,16 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
     );
   }, []);
 
-  function renderDeleteModals() {
-    if (item?.type === 'message') {
-      return (
-        <DeleteMessageModal
-          isOpen={isDeleteModalOpen}
-          isSchedule={messageListType === 'scheduled'}
-          onClose={closeDeleteModal}
-          onConfirm={onBeforeDelete}
-          message={item.message}
-        />
-      );
-    }
-    if (item?.type === 'avatar') {
-      return (
-        <DeleteProfilePhotoModal
-          isOpen={isDeleteModalOpen}
-          onClose={closeDeleteModal}
-          onConfirm={onBeforeDelete}
-          profileId={item.avatarOwner.id}
-          photo={item.avatarOwner.photos![item.mediaIndex!]}
-        />
-      );
-    }
-
-    return undefined;
+  function renderDeleteModal() {
+    return (item?.type === 'avatar') ? (
+      <DeleteProfilePhotoModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={onBeforeDelete}
+        profileId={item.avatarOwner.id}
+        photo={item.profilePhotos.photos[item.mediaIndex!]}
+      />
+    ) : undefined;
   }
 
   function renderDownloadButton() {
@@ -195,7 +181,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
       return undefined;
     }
 
-    return isVideo ? (
+    return item?.type !== 'sponsoredMessage' && (isVideo ? (
       <Button
         round
         size="smaller"
@@ -220,8 +206,20 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
       >
         <i className="icon icon-download" />
       </Button>
-    );
+    ));
   }
+
+  const openDeleteModalHandler = useLastCallback(() => {
+    if (item?.type === 'message') {
+      openDeleteMessageModal({
+        isSchedule: messageListType === 'scheduled',
+        message: item.message,
+        onConfirm: onBeforeDelete,
+      });
+    } else {
+      openDeleteModal();
+    }
+  });
 
   if (isMobile) {
     const menuItems: MenuItemProps[] = [];
@@ -268,7 +266,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
     if (canDelete) {
       menuItems.push({
         icon: 'delete',
-        onClick: openDeleteModal,
+        onClick: openDeleteModalHandler,
         children: lang('Delete'),
         destructive: true,
       });
@@ -300,7 +298,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
           ))}
         </DropdownMenu>
         {isDownloading && <ProgressSpinner progress={downloadProgress} size="s" noCross />}
-        {canDelete && renderDeleteModals()}
+        {canDelete && renderDeleteModal()}
       </div>
     );
   }
@@ -365,7 +363,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
           size="smaller"
           color="translucent-white"
           ariaLabel={lang('Delete')}
-          onClick={openDeleteModal}
+          onClick={openDeleteModalHandler}
         >
           <i className="icon icon-delete" />
         </Button>
@@ -379,7 +377,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
       >
         <i className="icon icon-close" />
       </Button>
-      {canDelete && renderDeleteModals()}
+      {canDelete && renderDeleteModal()}
     </div>
   );
 };
@@ -393,7 +391,7 @@ export default memo(withGlobal<OwnProps>(
 
     const message = item?.type === 'message' ? item.message : undefined;
     const avatarOwner = item?.type === 'avatar' ? item.avatarOwner : undefined;
-    const avatarPhoto = avatarOwner?.photos?.[item!.mediaIndex!];
+    const avatarPhoto = item?.type === 'avatar' && item.profilePhotos.photos[item.mediaIndex];
 
     const currentMessageList = selectCurrentMessageList(global);
     const { threadId } = selectCurrentMessageList(global) || {};
@@ -401,11 +399,11 @@ export default memo(withGlobal<OwnProps>(
     const activeDownloads = selectActiveDownloads(global);
     const isChatProtected = message && selectIsChatProtected(global, message?.chatId);
     const { canDelete: canDeleteMessage } = (threadId
-      && message && selectAllowedMessageActions(global, message, threadId)) || {};
-    const isCurrentAvatar = avatarPhoto && (avatarPhoto.id === avatarOwner?.avatarHash);
-    const canDeleteAvatar = canUpdateMedia && !!avatarPhoto;
+      && message && selectAllowedMessageActionsSlow(global, message, threadId)) || {};
+    const isCurrentAvatar = avatarPhoto && (avatarPhoto.id === avatarOwner?.avatarPhotoId);
+    const canDeleteAvatar = canUpdateMedia && Boolean(avatarPhoto);
     const canDelete = canDeleteMessage || canDeleteAvatar;
-    const canUpdate = canUpdateMedia && !!avatarPhoto && !isCurrentAvatar;
+    const canUpdate = canUpdateMedia && Boolean(avatarPhoto) && !isCurrentAvatar;
     const messageListType = currentMessageList?.type;
 
     return {

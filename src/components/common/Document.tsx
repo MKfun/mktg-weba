@@ -6,7 +6,6 @@ import { getActions } from '../../global';
 import type { ApiDocument, ApiMessage } from '../../api/types';
 import type { ObserveFn } from '../../hooks/useIntersectionObserver';
 
-import { SUPPORTED_IMAGE_CONTENT_TYPES, SUPPORTED_VIDEO_CONTENT_TYPES } from '../../config';
 import {
   getDocumentMediaHash,
   getMediaFormat,
@@ -48,7 +47,7 @@ type OwnProps = {
   message: ApiMessage;
   onDateClick: (arg: ApiMessage) => void;
 } | {
-  message?: never;
+  message?: ApiMessage;
   onDateClick?: never;
 });
 
@@ -121,12 +120,10 @@ const Document = ({
   const localBlobUrl = hasPreview ? document.previewBlobUrl : undefined;
   const previewData = useMedia(getDocumentMediaHash(document, 'pictogram'), !isIntersecting);
 
-  const withMediaViewer = onMediaClick && Boolean(document.mediaType) && (
-    SUPPORTED_VIDEO_CONTENT_TYPES.has(document.mimeType) || SUPPORTED_IMAGE_CONTENT_TYPES.has(document.mimeType)
-  );
+  const withMediaViewer = onMediaClick && document.innerMediaType;
 
   const handleDownload = useLastCallback(() => {
-    downloadMedia({ media: document });
+    downloadMedia({ media: document, originMessage: message });
   });
 
   const handleClick = useLastCallback(() => {

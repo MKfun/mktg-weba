@@ -1,9 +1,7 @@
 import React, { memo, useRef } from '../../../../lib/teact/teact';
 import { getActions } from '../../../../global';
 
-import type {
-  ApiReaction, ApiSavedReactionTag,
-} from '../../../../api/types';
+import type { ApiReaction, ApiSavedReactionTag } from '../../../../api/types';
 import type { ObserveFn } from '../../../../hooks/useIntersectionObserver';
 
 import buildClassName from '../../../../util/buildClassName';
@@ -12,7 +10,6 @@ import { REM } from '../../../common/helpers/mediaDimensions';
 import useContextMenuHandlers from '../../../../hooks/useContextMenuHandlers';
 import useFlag from '../../../../hooks/useFlag';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useMenuPosition from '../../../../hooks/useMenuPosition';
 import useOldLang from '../../../../hooks/useOldLang';
 
 import ReactionAnimatedEmoji from '../../../common/reactions/ReactionAnimatedEmoji';
@@ -38,7 +35,6 @@ type OwnProps = {
   chosenClassName?: string;
   isDisabled?: boolean;
   withContextMenu?: boolean;
-  shouldDelayInit?: boolean;
   observeIntersection?: ObserveFn;
   onClick?: (reaction: ApiReaction) => void;
   onRemove?: (reaction: ApiReaction) => void;
@@ -55,7 +51,6 @@ const SavedTagButton = ({
   withCount,
   isDisabled,
   withContextMenu,
-  shouldDelayInit,
   observeIntersection,
   onClick,
   onRemove,
@@ -90,7 +85,7 @@ const SavedTagButton = ({
 
   const {
     isContextMenuOpen,
-    contextMenuPosition,
+    contextMenuAnchor,
     handleBeforeContextMenu,
     handleContextMenu,
     handleContextMenuClose,
@@ -100,18 +95,7 @@ const SavedTagButton = ({
   const getTriggerElement = useLastCallback(() => ref.current);
   const getRootElement = useLastCallback(() => document.body);
   const getMenuElement = useLastCallback(() => menuRef.current);
-
-  const getLayout = () => ({ withPortal: true, shouldAvoidNegativePosition: true });
-
-  const {
-    positionX, positionY, transformOriginX, transformOriginY, style: menuStyle,
-  } = useMenuPosition(
-    contextMenuPosition,
-    getTriggerElement,
-    getRootElement,
-    getMenuElement,
-    getLayout,
-  );
+  const getLayout = useLastCallback(() => ({ withPortal: true, shouldAvoidNegativePosition: true }));
 
   if (withCount && count === 0) {
     return undefined;
@@ -141,7 +125,6 @@ const SavedTagButton = ({
         loopLimit={LOOP_LIMIT}
         size={REACTION_SIZE}
         observeIntersection={observeIntersection}
-        shouldDelayInit={shouldDelayInit}
       />
       {hasText && (
         <span className={styles.tagText}>
@@ -169,15 +152,15 @@ const SavedTagButton = ({
           onSubmit={handleRenameTag}
         />
       )}
-      {withContextMenu && contextMenuPosition && (
+      {withContextMenu && contextMenuAnchor && (
         <Menu
           ref={menuRef}
           isOpen={isContextMenuOpen}
-          transformOriginX={transformOriginX}
-          transformOriginY={transformOriginY}
-          positionX={positionX}
-          positionY={positionY}
-          style={menuStyle}
+          anchor={contextMenuAnchor}
+          getTriggerElement={getTriggerElement}
+          getRootElement={getRootElement}
+          getMenuElement={getMenuElement}
+          getLayout={getLayout}
           autoClose
           withPortal
           onClose={handleContextMenuClose}

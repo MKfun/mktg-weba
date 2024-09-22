@@ -100,7 +100,6 @@ export type ApiUpdateChat = {
   '@type': 'updateChat';
   id: string;
   chat: Partial<ApiChat>;
-  newProfilePhoto?: ApiPhoto;
   noTopChatsRequest?: boolean;
 };
 
@@ -265,9 +264,9 @@ export type ApiUpdatePinnedMessageIds = {
   messageIds: number[];
 };
 
-export type ApiUpdateThreadInfos = {
-  '@type': 'updateThreadInfos';
-  threadInfoUpdates: Partial<ApiThreadInfo>[];
+export type ApiUpdateThreadInfo = {
+  '@type': 'updateThreadInfo';
+  threadInfo: Partial<ApiThreadInfo>;
 };
 
 export type ApiUpdateScheduledMessageSendSucceeded = {
@@ -480,6 +479,11 @@ export type ApiUpdateSavedGifs = {
 export type ApiUpdateTwoFaError = {
   '@type': 'updateTwoFaError';
   message: string;
+};
+
+export type ApiUpdatePasswordError = {
+  '@type': 'updatePasswordError';
+  error: string;
 };
 
 export type ApiUpdateNotifySettings = {
@@ -742,13 +746,32 @@ export type ApiUpdateStarsBalance = {
   balance: number;
 };
 
+export type ApiUpdateDeleteProfilePhoto = {
+  '@type': 'updateDeleteProfilePhoto';
+  peerId: string;
+  photoId?: string;
+};
+
+export type ApiUpdateNewProfilePhoto = {
+  '@type': 'updateNewProfilePhoto';
+  peerId: string;
+  photo: ApiPhoto;
+};
+
+export type ApiUpdateEntities = {
+  '@type': 'updateEntities';
+  users?: Record<string, ApiUser>;
+  chats?: Record<string, ApiChat>;
+  threadInfos?: ApiThreadInfo[];
+};
+
 export type ApiUpdate = (
   ApiUpdateReady | ApiUpdateSession | ApiUpdateWebAuthTokenFailed | ApiUpdateRequestUserUpdate |
   ApiUpdateAuthorizationState | ApiUpdateAuthorizationError | ApiUpdateConnectionState | ApiUpdateCurrentUser |
   ApiUpdateChat | ApiUpdateChatInbox | ApiUpdateChatTypingStatus | ApiUpdateChatFullInfo | ApiUpdatePinnedChatIds |
   ApiUpdateChatMembers | ApiUpdateChatJoin | ApiUpdateChatLeave | ApiUpdateChatPinned | ApiUpdatePinnedMessageIds |
   ApiUpdateChatListType | ApiUpdateChatFolder | ApiUpdateChatFoldersOrder | ApiUpdateRecommendedChatFolders |
-  ApiUpdateNewMessage | ApiUpdateMessage | ApiUpdateThreadInfos | ApiUpdateCommonBoxMessages |
+  ApiUpdateNewMessage | ApiUpdateMessage | ApiUpdateThreadInfo | ApiUpdateCommonBoxMessages |
   ApiUpdateDeleteMessages | ApiUpdateMessagePoll | ApiUpdateMessagePollVote | ApiUpdateDeleteHistory |
   ApiUpdateMessageSendSucceeded | ApiUpdateMessageSendFailed | ApiUpdateServiceNotification |
   ApiDeleteContact | ApiUpdateUser | ApiUpdateUserStatus | ApiUpdateUserFullInfo |
@@ -758,7 +781,7 @@ export type ApiUpdate = (
   ApiUpdateRecentStickers | ApiUpdateSavedGifs | ApiUpdateNewScheduledMessage | ApiUpdateMoveStickerSetToTop |
   ApiUpdateScheduledMessageSendSucceeded | ApiUpdateScheduledMessage |
   ApiUpdateDeleteScheduledMessages | ApiUpdateResetMessages | ApiUpdateMessageTranslations |
-  ApiUpdateTwoFaError | ApiUpdateTwoFaStateWaitCode | ApiUpdateWebViewResultSent |
+  ApiUpdateTwoFaError | ApiUpdatePasswordError | ApiUpdateTwoFaStateWaitCode | ApiUpdateWebViewResultSent |
   ApiUpdateNotifySettings | ApiUpdateNotifyExceptions | ApiUpdatePeerBlocked | ApiUpdatePrivacy |
   ApiUpdateServerTimeOffset | ApiUpdateShowInvite | ApiUpdateMessageReactions | ApiUpdateSavedReactionTags |
   ApiUpdateGroupCallParticipants | ApiUpdateGroupCallConnection | ApiUpdateGroupCall | ApiUpdateGroupCallStreams |
@@ -773,7 +796,8 @@ export type ApiUpdate = (
   ApiUpdateStealthMode | ApiUpdateAttachMenuBots | ApiUpdateNewAuthorization | ApiUpdateGroupInvitePrivacyForbidden |
   ApiUpdateViewForumAsMessages | ApiUpdateSavedDialogPinned | ApiUpdatePinnedSavedDialogIds | ApiUpdateChatLastMessage |
   ApiUpdateDeleteSavedHistory | ApiUpdatePremiumFloodWait | ApiUpdateStarsBalance |
-  ApiUpdateQuickReplyMessage | ApiUpdateQuickReplies | ApiDeleteQuickReply | ApiUpdateDeleteQuickReplyMessages
+  ApiUpdateQuickReplyMessage | ApiUpdateQuickReplies | ApiDeleteQuickReply | ApiUpdateDeleteQuickReplyMessages |
+  ApiUpdateDeleteProfilePhoto | ApiUpdateNewProfilePhoto | ApiUpdateEntities
 );
 
 export type OnApiUpdate = (update: ApiUpdate) => void;

@@ -14,9 +14,9 @@ import renderText from './helpers/renderText';
 
 import useAppLayout from '../../hooks/useAppLayout';
 import useCanvasBlur from '../../hooks/useCanvasBlur';
-import useMediaTransition from '../../hooks/useMediaTransition';
+import useMediaTransitionDeprecated from '../../hooks/useMediaTransitionDeprecated';
 import useOldLang from '../../hooks/useOldLang';
-import useShowTransition from '../../hooks/useShowTransition';
+import useShowTransitionDeprecated from '../../hooks/useShowTransitionDeprecated';
 
 import Link from '../ui/Link';
 import ProgressSpinner from '../ui/ProgressSpinner';
@@ -75,12 +75,12 @@ const File: FC<OwnProps> = ({
   const [withThumb] = useState(!previewData);
   const noThumb = Boolean(previewData);
   const thumbRef = useCanvasBlur(thumbnailDataUri, noThumb, isMobile && !IS_CANVAS_FILTER_SUPPORTED);
-  const thumbClassNames = useMediaTransition(!noThumb);
+  const thumbClassNames = useMediaTransitionDeprecated(!noThumb);
 
   const {
     shouldRender: shouldSpinnerRender,
     transitionClassNames: spinnerClassNames,
-  } = useShowTransition(isTransferring, undefined, true);
+  } = useShowTransitionDeprecated(isTransferring, undefined, true);
 
   const color = getColorFromExtension(extension);
   const sizeString = getFileSizeString(size);
@@ -120,7 +120,7 @@ const File: FC<OwnProps> = ({
             {withThumb && (
               <canvas
                 ref={thumbRef}
-                className={buildClassName('thumbnail', 'canvas-blur-setup', thumbClassNames)}
+                className={buildClassName('thumbnail', thumbClassNames)}
               />
             )}
           </div>

@@ -12,21 +12,21 @@ import type { ObserveFn } from '../../hooks/useIntersectionObserver';
 import type { FocusDirection, ThreadId } from '../../types';
 import type { PinnedIntersectionChangedCallback } from './hooks/usePinnedMessage';
 
-import {
-  getChatTitle, getMessageHtmlId, isJoinedChannelMessage,
-} from '../../global/helpers';
+import { getChatTitle, getMessageHtmlId, isJoinedChannelMessage } from '../../global/helpers';
 import { getMessageReplyInfo } from '../../global/helpers/replies';
 import {
   selectCanPlayAnimatedEmojis,
   selectChat,
   selectChatMessage,
   selectGiftStickerForDuration,
+  selectGiftStickerForStars,
   selectIsMessageFocused,
   selectTabState,
   selectTopicFromMessage,
   selectUser,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { formatInteger } from '../../util/textFormat';
 import { renderActionMessageText } from '../common/helpers/renderActionMessageText';
 import renderText from '../common/helpers/renderText';
 import { preventMessageInputBlur } from './helpers/preventMessageInputBlur';
@@ -36,7 +36,7 @@ import useEnsureMessage from '../../hooks/useEnsureMessage';
 import useFlag from '../../hooks/useFlag';
 import { useIsIntersecting, useOnIntersect } from '../../hooks/useIntersectionObserver';
 import useOldLang from '../../hooks/useOldLang';
-import useShowTransition from '../../hooks/useShowTransition';
+import useShowTransitionDeprecated from '../../hooks/useShowTransitionDeprecated';
 import useFocusMessage from './message/hooks/useFocusMessage';
 
 import AnimatedIconFromSticker from '../common/AnimatedIconFromSticker';
@@ -72,6 +72,7 @@ type StateProps = {
   focusDirection?: FocusDirection;
   noFocusHighlight?: boolean;
   premiumGiftSticker?: ApiSticker;
+  starGiftSticker?: ApiSticker;
   canPlayAnimatedEmojis?: boolean;
 };
 
@@ -93,6 +94,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   focusDirection,
   noFocusHighlight,
   premiumGiftSticker,
+  starGiftSticker,
   isInsideTopic,
   topic,
   memoFirstUnreadIdRef,
@@ -103,10 +105,10 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   onPinnedIntersectionChange,
 }) => {
   const {
-    openPremiumModal, requestConfetti, checkGiftCode, getReceipt,
+    openPremiumModal, requestConfetti, checkGiftCode, getReceipt, openStarsTransactionFromGift,
   } = getActions();
 
-  const lang = useOldLang();
+  const oldLang = useOldLang();
 
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -129,10 +131,11 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
 
   const noAppearanceAnimation = appearanceOrder <= 0;
   const [isShown, markShown] = useFlag(noAppearanceAnimation);
-  const isGift = Boolean(message.content.action?.text.startsWith('ActionGift'));
-  const isGiftCode = Boolean(message.content.action?.text.startsWith('BoostingReceivedGift'));
+  const isPremiumGift = message.content.action?.type === 'giftPremium';
+  const isGiftCode = message.content.action?.type === 'giftCode';
   const isSuggestedAvatar = message.content.action?.type === 'suggestProfilePhoto' && message.content.action!.photo;
   const isJoinedMessage = isJoinedChannelMessage(message);
+  const isStarsGift = message.content.action?.type === 'giftStars';
 
   useEffect(() => {
     if (noAppearanceAnimation) {
@@ -146,7 +149,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
 
   const shouldShowConfettiRef = useRef((() => {
     const isUnread = memoFirstUnreadIdRef?.current && message.id >= memoFirstUnreadIdRef.current;
-    return isGift && !message.isOutgoing && isUnread;
+    return isPremiumGift && !message.isOutgoing && isUnread;
   })());
 
   useEffect(() => {
@@ -156,7 +159,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
     }
   }, [isVisible, requestConfetti]);
 
-  const { transitionClassNames } = useShowTransition(isShown, undefined, noAppearanceAnimation, false);
+  const { transitionClassNames } = useShowTransitionDeprecated(isShown, undefined, noAppearanceAnimation, false);
 
   // No need for expensive global updates on users and chats, so we avoid them
   const usersById = getGlobal().users.byId;
@@ -168,7 +171,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
 
   const renderContent = useCallback(() => {
     return renderActionMessageText(
-      lang,
+      oldLang,
       message,
       senderUser,
       senderChat,
@@ -181,20 +184,27 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
       observeIntersectionForPlaying,
     );
   }, [
-    isEmbedded, lang, message, observeIntersectionForLoading, observeIntersectionForPlaying,
+    isEmbedded, message, observeIntersectionForLoading, observeIntersectionForPlaying, oldLang,
     senderChat, senderUser, targetChatId, targetMessage, targetUsers, topic,
   ]);
 
   const {
-    isContextMenuOpen, contextMenuPosition,
+    isContextMenuOpen, contextMenuAnchor,
     handleBeforeContextMenu, handleContextMenu,
     handleContextMenuClose, handleContextMenuHide,
   } = useContextMenuHandlers(ref);
-  const isContextMenuShown = contextMenuPosition !== undefined;
+  const isContextMenuShown = contextMenuAnchor !== undefined;
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     preventMessageInputBlur(e);
     handleBeforeContextMenu(e);
+  };
+
+  const handleStarGiftClick = () => {
+    openStarsTransactionFromGift({
+      chatId: message.chatId,
+      messageId: message.id,
+    });
   };
 
   const handlePremiumGiftClick = () => {
@@ -233,7 +243,12 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
 
   function renderGift() {
     return (
-      <span className="action-message-gift" tabIndex={0} role="button" onClick={handlePremiumGiftClick}>
+      <span
+        className="action-message-gift"
+        tabIndex={0}
+        role="button"
+        onClick={handlePremiumGiftClick}
+      >
         <AnimatedIconFromSticker
           key={message.id}
           sticker={premiumGiftSticker}
@@ -241,10 +256,12 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
           noLoop
           nonInteractive
         />
-        <strong>{lang('ActionGiftPremiumTitle')}</strong>
-        <span>{lang('ActionGiftPremiumSubtitle', lang('Months', message.content.action?.months, 'i'))}</span>
+        <strong>{oldLang('ActionGiftPremiumTitle')}</strong>
+        <span>
+          {oldLang('ActionGiftPremiumSubtitle', oldLang('Months', message.content.action?.months, 'i'))}
+        </span>
 
-        <span className="action-message-button">{lang('ActionGiftPremiumView')}</span>
+        <span className="action-message-button">{oldLang('ActionGiftPremiumView')}</span>
       </span>
     );
   }
@@ -266,21 +283,60 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
           noLoop
           nonInteractive
         />
-        <strong>{lang(isUnclaimed ? 'BoostingUnclaimedPrize' : 'BoostingCongratulations')}</strong>
+        <strong>
+          {oldLang(isUnclaimed ? 'BoostingUnclaimedPrize' : 'BoostingCongratulations')}
+        </strong>
         <span className="action-message-subtitle">
-          {targetChat && renderText(lang(isFromGiveaway ? 'BoostingReceivedGiftFrom' : isUnclaimed
+          {targetChat && renderText(oldLang(isFromGiveaway ? 'BoostingReceivedGiftFrom' : isUnclaimed
             ? 'BoostingReceivedPrizeFrom' : 'BoostingYouHaveUnclaimedPrize',
-          getChatTitle(lang, targetChat)),
+          getChatTitle(oldLang, targetChat)),
           ['simple_markdown'])}
         </span>
         <span className="action-message-subtitle">
-          {renderText(lang(
+          {renderText(oldLang(
             'BoostingUnclaimedPrizeDuration',
-            lang('Months', message.content.action?.months, 'i'),
+            oldLang('Months', message.content.action?.months, 'i'),
           ), ['simple_markdown'])}
         </span>
 
-        <span className="action-message-button">{lang('BoostingReceivedGiftOpenBtn')}</span>
+        <span className="action-message-button">{
+          oldLang('BoostingReceivedGiftOpenBtn')
+        }
+        </span>
+      </span>
+    );
+  }
+
+  function renderStarsGift() {
+    return (
+      <span
+        className="action-message-gift action-message-gift-code"
+        tabIndex={0}
+        role="button"
+        onClick={handleStarGiftClick}
+      >
+        <AnimatedIconFromSticker
+          key={message.id}
+          sticker={starGiftSticker}
+          play={canPlayAnimatedEmojis}
+          noLoop
+          nonInteractive
+        />
+        <div className="action-message-stars-balance">
+          {formatInteger(message.content.action!.stars!)}
+          <strong>{oldLang('Stars')}</strong>
+        </div>
+        <span className="action-message-stars-subtitle">
+          {renderText(
+            oldLang(!message.isOutgoing
+              ? 'ActionGiftStarsSubtitleYou' : 'ActionGiftStarsSubtitle', getChatTitle(oldLang, targetChat!)),
+            ['simple_markdown'],
+          )}
+        </span>
+        <span className="action-message-button">{
+          oldLang('ActionGiftPremiumView')
+        }
+        </span>
       </span>
     );
   }
@@ -288,7 +344,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   const className = buildClassName(
     'ActionMessage message-list-item',
     isFocused && !noFocusHighlight && 'focused',
-    (isGift || isSuggestedAvatar) && 'centered-action',
+    (isPremiumGift || isSuggestedAvatar) && 'centered-action',
     isContextMenuShown && 'has-menu-open',
     isLastInList && 'last-in-list',
     transitionClassNames,
@@ -307,16 +363,17 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
       {!isSuggestedAvatar && !isGiftCode && !isJoinedMessage && (
         <span className="action-message-content" onClick={handleClick}>{renderContent()}</span>
       )}
-      {isGift && renderGift()}
+      {isPremiumGift && renderGift()}
       {isGiftCode && renderGiftCode()}
+      {isStarsGift && renderStarsGift()}
       {isSuggestedAvatar && (
         <ActionMessageSuggestedAvatar message={message} renderContent={renderContent} />
       )}
       {isJoinedMessage && <SimilarChannels chatId={targetChatId!} />}
-      {contextMenuPosition && (
+      {contextMenuAnchor && (
         <ContextMenuContainer
           isOpen={isContextMenuOpen}
-          anchor={contextMenuPosition}
+          anchor={contextMenuAnchor}
           message={message}
           messageListType="thread"
           onClose={handleContextMenuClose}
@@ -352,6 +409,10 @@ export default memo(withGlobal<OwnProps>(
 
     const giftDuration = content.action?.months;
     const premiumGiftSticker = selectGiftStickerForDuration(global, giftDuration);
+
+    const starCount = content.action?.stars;
+    const starGiftSticker = selectGiftStickerForStars(global, starCount);
+
     const topic = selectTopicFromMessage(global, message);
 
     return {
@@ -363,6 +424,7 @@ export default memo(withGlobal<OwnProps>(
       targetMessage,
       isFocused,
       premiumGiftSticker,
+      starGiftSticker,
       topic,
       canPlayAnimatedEmojis: selectCanPlayAnimatedEmojis(global),
       ...(isFocused && {

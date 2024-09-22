@@ -1185,7 +1185,6 @@ export interface LangPair {
   'AttachSticker': undefined;
   'AttachMusic': undefined;
   'AttachContact': undefined;
-  'PaymentInvoice': undefined;
   'MessageLocation': undefined;
   'MessageLiveLocation': undefined;
   'ServiceNotifications': undefined;
@@ -1511,7 +1510,35 @@ export interface LangPair {
   'MenuBetaChangelog': undefined;
   'MenuSwitchToK': undefined;
   'MenuInstallApp': undefined;
-  'RemoveEffect' : undefined;
+  'RemoveEffect': undefined;
+  'ReplyInPrivateMessage': undefined;
+  'ProfileOpenAppAbout': {
+    'terms': string;
+  };
+  'ProfileOpenAppTerms': undefined;
+  'ProfileBotOpenAppInfoLink': undefined;
+  'MonetizationInfoTONTitle': undefined;
+  'ChannelEarnLearnCoinAbout': {
+    'link': string | number;
+  };
+  'MonetizationBalanceZeroInfo': {
+    'link': string | number;
+  };
+  'ChannelEarnAbout': {
+    'link': string | number;
+  };
+  'AriaSearchOlderResult': undefined;
+  'AriaSearchNewerResult': undefined;
+  'CreditsBoxHistoryEntryGiftOutAbout': {
+    'user': string | number;
+    'link': string | number;
+  };
+  'CreditsBoxOutAbout': {
+    'link': string | number;
+  };
+  'GiftStarsOutgoing': {
+    'user': string | number;
+  };
 }
 
 export type LangKey = keyof LangPair;

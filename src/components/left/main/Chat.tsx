@@ -43,6 +43,7 @@ import {
   selectTabState,
   selectThreadParam,
   selectTopicFromMessage,
+  selectTopicsInfo,
   selectUser,
   selectUserStatus,
 } from '../../../global/selectors';
@@ -57,7 +58,7 @@ import useEnsureMessage from '../../../hooks/useEnsureMessage';
 import useFlag from '../../../hooks/useFlag';
 import { useIsIntersecting } from '../../../hooks/useIntersectionObserver';
 import useLastCallback from '../../../hooks/useLastCallback';
-import useShowTransition from '../../../hooks/useShowTransition';
+import useShowTransitionDeprecated from '../../../hooks/useShowTransitionDeprecated';
 import useChatListEntry from './hooks/useChatListEntry';
 
 import Avatar from '../../common/Avatar';
@@ -90,6 +91,8 @@ type OwnProps = {
 
 type StateProps = {
   chat?: ApiChat;
+  listedTopicIds?: number[];
+  topics?: Record<number, ApiTopic>;
   isMuted?: boolean;
   user?: ApiUser;
   userStatus?: ApiUserStatus;
@@ -118,6 +121,8 @@ const Chat: FC<OwnProps & StateProps> = ({
   orderDiff,
   animationType,
   isPinned,
+  listedTopicIds,
+  topics,
   observeIntersection,
   chat,
   isMuted,
@@ -190,6 +195,7 @@ const Chat: FC<OwnProps & StateProps> = ({
     orderDiff,
     isSavedDialog,
     isPreview,
+    topics,
   });
 
   const getIsForumPanelClosed = useSelectorSignal(selectIsForumPanelClosed);
@@ -284,13 +290,13 @@ const Chat: FC<OwnProps & StateProps> = ({
 
   // Load the forum topics to display unread count badge
   useEffect(() => {
-    if (isIntersecting && isForum && chat && chat.listedTopicIds === undefined) {
+    if (isIntersecting && isForum && listedTopicIds === undefined) {
       loadTopics({ chatId });
     }
-  }, [chat, chatId, isForum, isIntersecting]);
+  }, [chatId, listedTopicIds, isForum, isIntersecting]);
 
   const isOnline = user && userStatus && isUserOnline(user, userStatus);
-  const { hasShownClass: isAvatarOnlineShown } = useShowTransition(isOnline);
+  const { hasShownClass: isAvatarOnlineShown } = useShowTransitionDeprecated(isOnline);
 
   const href = useMemo(() => {
     if (!IS_OPEN_IN_NEW_TAB_SUPPORTED) return undefined;
@@ -335,6 +341,7 @@ const Chat: FC<OwnProps & StateProps> = ({
           peer={peer}
           isSavedMessages={user?.isSelf}
           isSavedDialog={isSavedDialog}
+          size={isPreview ? 'medium' : 'large'}
           withStory={!user?.isSelf}
           withStoryGap={isAvatarOnlineShown}
           storyViewerOrigin={StoryViewerOrigin.ChatList}
@@ -342,7 +349,13 @@ const Chat: FC<OwnProps & StateProps> = ({
         />
         <div className="avatar-badge-wrapper">
           <div className={buildClassName('avatar-online', isAvatarOnlineShown && 'avatar-online-shown')} />
-          <ChatBadge chat={chat} isMuted={isMuted} shouldShowOnlyMostImportant forceHidden={getIsForumPanelClosed} />
+          <ChatBadge
+            chat={chat}
+            isMuted={isMuted}
+            shouldShowOnlyMostImportant
+            forceHidden={getIsForumPanelClosed}
+            topics={topics}
+          />
         </div>
         {chat.isCallActive && chat.isCallNotEmpty && (
           <ChatCallStatus isMobile={isMobile} isSelected={isSelected} isActive={withInterfaceAnimations} />
@@ -375,6 +388,7 @@ const Chat: FC<OwnProps & StateProps> = ({
               isPinned={isPinned}
               isMuted={isMuted}
               isSavedDialog={isSavedDialog}
+              topics={topics}
             />
           )}
         </div>
@@ -459,6 +473,8 @@ export default memo(withGlobal<OwnProps>(
 
     const typingStatus = selectThreadParam(global, chatId, MAIN_THREAD_ID, 'typingStatus');
 
+    const topicsInfo = selectTopicsInfo(global, chatId);
+
     return {
       chat,
       isMuted: selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global)),
@@ -483,6 +499,8 @@ export default memo(withGlobal<OwnProps>(
       lastMessage,
       lastMessageId,
       currentUserId: global.currentUserId!,
+      listedTopicIds: topicsInfo?.listedTopicIds,
+      topics: topicsInfo?.topicsById,
     };
   },
 )(Chat));

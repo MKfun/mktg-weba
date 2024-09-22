@@ -9,7 +9,6 @@ import { ManagementProgress } from '../../../types';
 
 import { BOT_FATHER_USERNAME, GENERAL_REFETCH_INTERVAL } from '../../../config';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
-import { buildCollectionByKey } from '../../../util/iteratees';
 import { oldTranslate } from '../../../util/oldLangProvider';
 import PopupManager from '../../../util/PopupManager';
 import requestActionTimeout from '../../../util/requestActionTimeout';
@@ -21,7 +20,7 @@ import {
   addActionHandler, getGlobal, setGlobal,
 } from '../../index';
 import {
-  addChats, addUsers, removeBlockedUser, updateManagementProgress, updateUser, updateUserFullInfo,
+  removeBlockedUser, updateManagementProgress, updateUser, updateUserFullInfo,
 } from '../../reducers';
 import { replaceInlineBotSettings, replaceInlineBotsIsLoading } from '../../reducers/bots';
 import { updateTabState } from '../../reducers/tabs';
@@ -37,6 +36,7 @@ import {
   selectMessageReplyInfo,
   selectPeer,
   selectSendAs,
+  selectSender,
   selectTabState,
   selectUser,
   selectUserFullInfo,
@@ -49,7 +49,14 @@ const runDebouncedForSearch = debounce((cb) => cb(), 500, false);
 let botFatherId: string | null;
 
 addActionHandler('clickBotInlineButton', (global, actions, payload): ActionReturnType => {
-  const { messageId, button, tabId = getCurrentTabId() } = payload;
+  const {
+    chatId, messageId, button, tabId = getCurrentTabId(),
+  } = payload;
+  const chat = selectChat(global, chatId);
+  const message = selectChatMessage(global, chatId, messageId);
+  if (!chat || !message) {
+    return;
+  }
 
   switch (button.type) {
     case 'command':
@@ -61,11 +68,6 @@ addActionHandler('clickBotInlineButton', (global, actions, payload): ActionRetur
       break;
     }
     case 'callback': {
-      const chat = selectCurrentChat(global, tabId);
-      if (!chat) {
-        return;
-      }
-
       void answerCallbackButton(global, actions, chat, messageId, button.data, undefined, tabId);
       break;
     }
@@ -89,10 +91,6 @@ addActionHandler('clickBotInlineButton', (global, actions, payload): ActionRetur
       break;
     }
     case 'receipt': {
-      const chat = selectCurrentChat(global, tabId);
-      if (!chat) {
-        return;
-      }
       const { receiptMessageId } = button;
       actions.getReceipt({
         chatId: chat.id, messageId: receiptMessageId, tabId,
@@ -100,10 +98,6 @@ addActionHandler('clickBotInlineButton', (global, actions, payload): ActionRetur
       break;
     }
     case 'buy': {
-      const chat = selectCurrentChat(global, tabId);
-      if (!chat) {
-        return;
-      }
       actions.openInvoice({
         type: 'message',
         chatId: chat.id,
@@ -113,11 +107,6 @@ addActionHandler('clickBotInlineButton', (global, actions, payload): ActionRetur
       break;
     }
     case 'game': {
-      const chat = selectCurrentChat(global, tabId);
-      if (!chat) {
-        return;
-      }
-
       void answerCallbackButton(global, actions, chat, messageId, undefined, true, tabId);
       break;
     }
@@ -137,30 +126,22 @@ addActionHandler('clickBotInlineButton', (global, actions, payload): ActionRetur
 
     case 'simpleWebView': {
       const { url } = button;
-      const { chatId } = selectCurrentMessageList(global, tabId) || {};
-      if (!chatId) {
+      const sender = selectSender(global, message);
+      if (!sender) {
         return;
       }
-      const message = selectChatMessage(global, chatId, messageId);
-      if (!message?.senderId) return;
+
       const theme = extractCurrentThemeParams();
       actions.requestSimpleWebView({
-        url, botId: message?.senderId, theme, buttonText: button.text, tabId,
+        url, botId: sender.id, theme, buttonText: button.text, tabId,
       });
       break;
     }
 
     case 'webView': {
       const { url } = button;
-      const chat = selectCurrentChat(global, tabId);
-      if (!chat) {
-        return;
-      }
-      const message = selectChatMessage(global, chat.id, messageId);
-      if (!message) {
-        return;
-      }
-      const botId = message.viaBotId || message.senderId;
+      const sender = selectSender(global, message);
+      const botId = message.viaBotId || sender?.id;
       if (!botId) {
         return;
       }
@@ -177,10 +158,6 @@ addActionHandler('clickBotInlineButton', (global, actions, payload): ActionRetur
     }
     case 'urlAuth': {
       const { url } = button;
-      const chat = selectCurrentChat(global, tabId);
-      if (!chat) {
-        return;
-      }
       actions.requestBotUrlAuth({
         chatId: chat.id,
         messageId,
@@ -246,14 +223,38 @@ addActionHandler('loadTopInlineBots', async (global): Promise<void> => {
     return;
   }
 
-  const { ids, users } = result;
+  const { ids } = result;
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(users, 'id'));
   global = {
     ...global,
     topInlineBots: {
       ...global.topInlineBots,
+      userIds: ids,
+      lastRequestedAt: getServerTime(),
+    },
+  };
+  setGlobal(global);
+});
+
+addActionHandler('loadTopBotApps', async (global): Promise<void> => {
+  const { lastRequestedAt } = global.topBotApps;
+  if (lastRequestedAt && getServerTime() - lastRequestedAt < TOP_PEERS_REQUEST_COOLDOWN) {
+    return;
+  }
+
+  const result = await callApi('fetchTopBotApps');
+  if (!result) {
+    return;
+  }
+
+  const { ids } = result;
+
+  global = getGlobal();
+  global = {
+    ...global,
+    topBotApps: {
+      ...global.topBotApps,
       userIds: ids,
       lastRequestedAt: getServerTime(),
     },
@@ -281,8 +282,6 @@ addActionHandler('queryInlineBot', async (global, actions, payload): Promise<voi
       return;
     }
 
-    global = addUsers(global, { [inlineBot.id]: inlineBot });
-    global = addChats(global, { [chat.id]: chat });
     inlineBotData = {
       id: inlineBot.id,
       query: '',
@@ -329,7 +328,8 @@ addActionHandler('switchBotInline', (global, actions, payload): ActionReturnType
     if (!message) {
       return undefined;
     }
-    botId = message.viaBotId || message.senderId;
+    const sender = selectSender(global, message);
+    botId = message.viaBotId || sender?.id;
   }
 
   if (!botId) {
@@ -586,6 +586,88 @@ addActionHandler('requestWebView', async (global, actions, payload): Promise<voi
   setGlobal(global);
 });
 
+addActionHandler('requestMainWebView', async (global, actions, payload): Promise<void> => {
+  const {
+    botId, peerId, theme, startParam, shouldMarkBotTrusted,
+    tabId = getCurrentTabId(),
+  } = payload;
+
+  const bot = selectUser(global, botId);
+  if (!bot) return;
+  const peer = selectPeer(global, peerId);
+  if (!peer) return;
+
+  if (!selectIsTrustedBot(global, botId)) {
+    if (shouldMarkBotTrusted) {
+      actions.markBotTrusted({ botId, isWriteAllowed: true, tabId });
+    } else {
+      global = updateTabState(global, {
+        botTrustRequest: {
+          botId,
+          type: 'webApp',
+          onConfirm: {
+            action: 'requestMainWebView',
+            payload,
+          },
+        },
+      }, tabId);
+      setGlobal(global);
+      return;
+    }
+  }
+
+  const result = await callApi('requestMainWebView', {
+    bot,
+    peer,
+    theme,
+    startParam,
+  });
+  if (!result) {
+    return;
+  }
+
+  const { url: webViewUrl, queryId } = result;
+
+  global = getGlobal();
+  global = updateTabState(global, {
+    webApp: {
+      url: webViewUrl,
+      botId,
+      queryId,
+      buttonText: '',
+    },
+  }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('loadPreviewMedias', async (global, actions, payload): Promise<void> => {
+  const {
+    botId,
+  } = payload;
+  const bot = selectUser(global, botId);
+  if (!bot) return;
+
+  const medias = await callApi('fetchPreviewMedias', {
+    bot,
+  });
+
+  global = getGlobal();
+  if (medias) {
+    global = {
+      ...global,
+      users: {
+        ...global.users,
+        previewMediaByBotId: {
+          ...global.users.previewMediaByBotId,
+          [botId]: medias,
+        },
+      },
+    };
+
+    setGlobal(global);
+  }
+});
+
 addActionHandler('requestAppWebView', async (global, actions, payload): Promise<void> => {
   const {
     botId, appName, startApp, theme, isWriteAllowed, isFromConfirm,
@@ -602,11 +684,9 @@ addActionHandler('requestAppWebView', async (global, actions, payload): Promise<
       bot,
     });
     if (result) {
-      const attachBot = result.bot;
       global = getGlobal();
-      global = addUsers(global, buildCollectionByKey(result.users, 'id'));
-      setGlobal(global);
 
+      const attachBot = result.bot;
       const shouldAskForTos = attachBot.isDisclaimerNeeded || attachBot.isForAttachMenu || attachBot.isForSideMenu;
 
       if (shouldAskForTos) {
@@ -639,7 +719,7 @@ addActionHandler('requestAppWebView', async (global, actions, payload): Promise<
     return;
   }
 
-  if (botApp.isInactive && !selectIsTrustedBot(global, botId)) {
+  if (botApp.isInactive || !selectIsTrustedBot(global, botId)) {
     global = updateTabState(global, {
       botTrustRequest: {
         botId,
@@ -799,7 +879,6 @@ async function loadAttachBots<T extends GlobalState>(global: T, hash?: string) {
   }
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
   global = {
     ...global,
     attachMenu: {

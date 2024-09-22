@@ -18,9 +18,9 @@ import sortChatIds from '../common/helpers/sortChatIds';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useOldLang from '../../hooks/useOldLang';
-import usePrevious from '../../hooks/usePrevious';
+import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
 
-import Picker from '../common/Picker';
+import PeerPicker from '../common/pickers/PeerPicker';
 import FloatingActionButton from '../ui/FloatingActionButton';
 import Spinner from '../ui/Spinner';
 
@@ -63,7 +63,7 @@ const AddChatMembers: FC<OwnProps & StateProps> = ({
 
   const lang = useOldLang();
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
-  const prevSelectedMemberIds = usePrevious(selectedMemberIds);
+  const prevSelectedMemberIds = usePreviousDeprecated(selectedMemberIds);
   const noPickerScrollRestore = prevSelectedMemberIds === selectedMemberIds;
 
   useHistoryBack({
@@ -116,7 +116,7 @@ const AddChatMembers: FC<OwnProps & StateProps> = ({
   return (
     <div className="AddChatMembers">
       <div className="AddChatMembers-inner">
-        <Picker
+        <PeerPicker
           itemIds={displayedIds}
           selectedIds={selectedMemberIds}
           filterValue={searchQuery}
@@ -126,7 +126,11 @@ const AddChatMembers: FC<OwnProps & StateProps> = ({
           onSelectedIdsChange={setSelectedMemberIds}
           onFilterChange={handleFilterChange}
           isSearchable
+          withDefaultPadding
           noScrollRestore={noPickerScrollRestore}
+          allowMultiple
+          withStatus
+          itemInputType="checkbox"
         />
 
         <FloatingActionButton

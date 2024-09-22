@@ -210,6 +210,7 @@ export interface ApiAppConfig {
   bandwidthPremiumUploadSpeedup?: number;
   bandwidthPremiumDownloadSpeedup?: number;
   channelRestrictAdsLevelMin?: number;
+  isChannelRevenueWithdrawalEnabled?: boolean;
 }
 
 export interface ApiConfig {
@@ -276,4 +277,13 @@ export interface ApiCollectionInfo {
   cryptoCurrency: string;
   purchaseDate: number;
   url: string;
+}
+
+export interface ApiPeerPhotos {
+  fallbackPhoto?: ApiPhoto;
+  personalPhoto?: ApiPhoto;
+  photos: ApiPhoto[];
+  count: number;
+  nextOffset?: number;
+  isLoading?: boolean;
 }

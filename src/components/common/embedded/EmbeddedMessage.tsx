@@ -37,6 +37,7 @@ import useThumbnail from '../../../hooks/useThumbnail';
 import useMessageTranslation from '../../middle/message/hooks/useMessageTranslation';
 
 import ActionMessage from '../../middle/ActionMessage';
+import RippleEffect from '../../ui/RippleEffect';
 import Icon from '../icons/Icon';
 import MediaSpoiler from '../MediaSpoiler';
 import MessageSummary from '../MessageSummary';
@@ -151,7 +152,6 @@ const EmbeddedMessage: FC<OwnProps> = ({
 
     return (
       <MessageSummary
-        lang={lang}
         message={message}
         noEmoji={Boolean(mediaThumbnail)}
         translatedText={translatedText}
@@ -232,6 +232,8 @@ const EmbeddedMessage: FC<OwnProps> = ({
       onClick={handleClick}
       onMouseDown={handleMouseDown}
     >
+      <div className="hover-effect" />
+      <RippleEffect />
       {mediaThumbnail && renderPictogram(mediaThumbnail, mediaBlobUrl, isRoundVideo, isProtected, isSpoiler)}
       {sender?.color?.backgroundEmojiId && (
         <EmojiIconBackground

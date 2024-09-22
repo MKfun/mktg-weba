@@ -4,7 +4,9 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiChat, ApiChatBannedRights, ApiInputMessageReplyInfo } from '../../api/types';
+import type {
+  ApiChat, ApiChatBannedRights, ApiInputMessageReplyInfo, ApiTopic,
+} from '../../api/types';
 import type {
   ActiveEmojiInteraction,
   MessageListType,
@@ -22,7 +24,7 @@ import {
   MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   MOBILE_SCREEN_MAX_WIDTH,
   SAFE_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
-  SUPPORTED_IMAGE_CONTENT_TYPES,
+  SUPPORTED_PHOTO_CONTENT_TYPES,
   TMP_CHAT_ID,
 } from '../../config';
 import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
@@ -45,7 +47,7 @@ import {
   selectChatFullInfo,
   selectChatMessage,
   selectCurrentMessageList,
-  selectCurrentTextSearch,
+  selectCurrentMiddleSearch,
   selectDraft,
   selectIsChatBotNotStarted,
   selectIsInSelectMode,
@@ -55,6 +57,8 @@ import {
   selectTabState,
   selectTheme,
   selectThreadInfo,
+  selectTopic,
+  selectTopics,
   selectUserFullInfo,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -72,7 +76,7 @@ import useHistoryBack from '../../hooks/useHistoryBack';
 import useLastCallback from '../../hooks/useLastCallback';
 import useOldLang from '../../hooks/useOldLang';
 import usePrevDuringAnimation from '../../hooks/usePrevDuringAnimation';
-import usePrevious from '../../hooks/usePrevious';
+import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
 import { useResize } from '../../hooks/useResize';
 import useSyncEffect from '../../hooks/useSyncEffect';
 import useWindowSize from '../../hooks/window/useWindowSize';
@@ -82,7 +86,8 @@ import Composer from '../common/Composer';
 import PrivacySettingsNoticeModal from '../common/PrivacySettingsNoticeModal.async';
 import SeenByModal from '../common/SeenByModal.async';
 import UnpinAllMessagesModal from '../common/UnpinAllMessagesModal.async';
-import GiftPremiumModal from '../main/premium/GiftPremiumModal.async';
+import PremiumGiftModal from '../main/premium/PremiumGiftModal.async';
+import StarsGiftModal from '../main/premium/StarsGiftModal.async';
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
 import ChatLanguageModal from './ChatLanguageModal.async';
@@ -92,9 +97,9 @@ import FloatingActionButtons from './FloatingActionButtons';
 import MessageList from './MessageList';
 import MessageSelectToolbar from './MessageSelectToolbar.async';
 import MiddleHeader from './MiddleHeader';
-import MobileSearch from './MobileSearch.async';
 import PremiumRequiredPlaceholder from './PremiumRequiredPlaceholder';
 import ReactorListModal from './ReactorListModal.async';
+import MiddleSearch from './search/MiddleSearch.async';
 
 import './MiddleColumn.scss';
 import styles from './MiddleColumn.module.scss';
@@ -128,12 +133,13 @@ type StateProps = {
   isRightColumnShown?: boolean;
   isBackgroundBlurred?: boolean;
   leftColumnWidth?: number;
-  hasCurrentTextSearch?: boolean;
+  hasActiveMiddleSearch?: boolean;
   isSelectModeActive?: boolean;
   isSeenByModalOpen: boolean;
   isPrivacySettingsNoticeModalOpen: boolean;
   isReactorListModalOpen: boolean;
-  isGiftPremiumModalOpen?: boolean;
+  isPremiumGiftModalOpen?: boolean;
+  isStarsGiftModalOpen?: boolean;
   isChatLanguageModalOpen?: boolean;
   withInterfaceAnimations?: boolean;
   shouldSkipHistoryAnimations?: boolean;
@@ -154,10 +160,11 @@ type StateProps = {
   isSavedDialog?: boolean;
   canShowOpenChatButton?: boolean;
   isContactRequirePremium?: boolean;
+  topics?: Record<number, ApiTopic>;
 };
 
 function isImage(item: DataTransferItem) {
-  return item.kind === 'file' && item.type && SUPPORTED_IMAGE_CONTENT_TYPES.has(item.type);
+  return item.kind === 'file' && item.type && SUPPORTED_PHOTO_CONTENT_TYPES.has(item.type);
 }
 
 const LAYER_ANIMATION_DURATION_MS = 450 + ANIMATION_END_DELAY;
@@ -188,12 +195,13 @@ function MiddleColumn({
   isRightColumnShown,
   isBackgroundBlurred,
   leftColumnWidth,
-  hasCurrentTextSearch,
+  hasActiveMiddleSearch,
   isSelectModeActive,
   isSeenByModalOpen,
   isPrivacySettingsNoticeModalOpen,
   isReactorListModalOpen,
-  isGiftPremiumModalOpen,
+  isPremiumGiftModalOpen,
+  isStarsGiftModalOpen,
   isChatLanguageModalOpen,
   withInterfaceAnimations,
   shouldSkipHistoryAnimations,
@@ -214,6 +222,7 @@ function MiddleColumn({
   isSavedDialog,
   canShowOpenChatButton,
   isContactRequirePremium,
+  topics,
 }: OwnProps & StateProps) {
   const {
     openChat,
@@ -221,7 +230,6 @@ function MiddleColumn({
     unpinAllMessages,
     loadUser,
     loadChatSettings,
-    closeLocalTextSearch,
     exitMessageSelectMode,
     joinChannel,
     sendBotCommand,
@@ -238,7 +246,8 @@ function MiddleColumn({
 
   const lang = useOldLang();
   const [dropAreaState, setDropAreaState] = useState(DropAreaState.None);
-  const [isScrollDownShown, setIsScrollDownShown] = useState(false);
+  const [isScrollDownNeeded, setIsScrollDownShown] = useState(false);
+  const isScrollDownShown = isScrollDownNeeded && (!isMobile || !hasActiveMiddleSearch);
   const [isNotchShown, setIsNotchShown] = useState<boolean | undefined>();
   const [isUnpinModalOpen, setIsUnpinModalOpen] = useState(false);
 
@@ -250,7 +259,6 @@ function MiddleColumn({
     getForceNextPinnedInHeader,
   } = usePinnedMessage(chatId, threadId, pinnedIds, topMessageId);
 
-  const isMobileSearchActive = isMobile && hasCurrentTextSearch;
   const closeAnimationDuration = isMobile ? LAYER_ANIMATION_DURATION_MS : undefined;
   const hasTools = hasPinned && (
     windowWidth < MOBILE_SCREEN_MAX_WIDTH
@@ -284,7 +292,7 @@ function MiddleColumn({
     closeAnimationDuration,
   );
 
-  const prevTransitionKey = usePrevious(currentTransitionKey);
+  const prevTransitionKey = usePreviousDeprecated(currentTransitionKey);
 
   const cleanupExceptionKey = (
     prevTransitionKey !== undefined && prevTransitionKey < currentTransitionKey ? prevTransitionKey : undefined
@@ -453,7 +461,7 @@ function MiddleColumn({
   const messageSendingRestrictionReason = getMessageSendingRestrictionReason(
     lang, currentUserBannedRights, defaultBannedRights,
   );
-  const forumComposerPlaceholder = getForumComposerPlaceholder(lang, chat, threadId, Boolean(draftReplyInfo));
+  const forumComposerPlaceholder = getForumComposerPlaceholder(lang, chat, threadId, topics, Boolean(draftReplyInfo));
 
   const composerRestrictionMessage = messageSendingRestrictionReason
     ?? forumComposerPlaceholder
@@ -478,11 +486,6 @@ function MiddleColumn({
   useHistoryBack({
     isActive: isSelectModeActive,
     onBack: exitMessageSelectMode,
-  });
-
-  useHistoryBack({
-    isActive: isMobileSearchActive,
-    onBack: closeLocalTextSearch,
   });
 
   const isMessagingDisabled = Boolean(
@@ -700,7 +703,7 @@ function MiddleColumn({
               withExtraShift={withExtraShift}
             />
           </div>
-          {isMobile && <MobileSearch isActive={Boolean(isMobileSearchActive)} />}
+          <MiddleSearch isActive={Boolean(hasActiveMiddleSearch)} />
         </>
       )}
       {chatId && (
@@ -721,7 +724,8 @@ function MiddleColumn({
           />
         ))}
       </div>
-      <GiftPremiumModal isOpen={isGiftPremiumModalOpen} />
+      <PremiumGiftModal isOpen={isPremiumGiftModalOpen} />
+      <StarsGiftModal isOpen={isStarsGiftModalOpen} />
     </div>
   );
 }
@@ -735,7 +739,7 @@ export default memo(withGlobal<OwnProps>(
 
     const {
       messageLists, isLeftColumnShown, activeEmojiInteractions,
-      seenByModal, giftPremiumModal, reactorModal, audioPlayer, shouldSkipHistoryAnimations,
+      seenByModal, giftModal, starsGiftModal, reactorModal, audioPlayer, shouldSkipHistoryAnimations,
       chatLanguageModal, privacySettingsNoticeModal,
     } = selectTabState(global);
     const currentMessageList = selectCurrentMessageList(global);
@@ -749,12 +753,13 @@ export default memo(withGlobal<OwnProps>(
       isLeftColumnShown,
       isRightColumnShown: selectIsRightColumnShown(global, isMobile),
       isBackgroundBlurred,
-      hasCurrentTextSearch: Boolean(selectCurrentTextSearch(global)),
+      hasActiveMiddleSearch: Boolean(selectCurrentMiddleSearch(global)),
       isSelectModeActive: selectIsInSelectMode(global),
       isSeenByModalOpen: Boolean(seenByModal),
       isPrivacySettingsNoticeModalOpen: Boolean(privacySettingsNoticeModal),
       isReactorListModalOpen: Boolean(reactorModal),
-      isGiftPremiumModalOpen: giftPremiumModal?.isOpen,
+      isPremiumGiftModalOpen: giftModal?.isOpen,
+      isStarsGiftModalOpen: starsGiftModal?.isOpen,
       isChatLanguageModalOpen: Boolean(chatLanguageModal),
       withInterfaceAnimations: selectCanAnimateInterface(global),
       currentTransitionKey: Math.max(0, messageLists.length - 1),
@@ -776,7 +781,8 @@ export default memo(withGlobal<OwnProps>(
 
     const threadInfo = selectThreadInfo(global, chatId, threadId);
     const isMessageThread = Boolean(!threadInfo?.isCommentsInfo && threadInfo?.fromChannelId);
-    const canPost = chat && getCanPostInChat(chat, threadId, isMessageThread, chatFullInfo);
+    const topic = selectTopic(global, chatId, threadId);
+    const canPost = chat && getCanPostInChat(chat, topic, isMessageThread, chatFullInfo);
     const isBotNotStarted = selectIsChatBotNotStarted(global, chatId);
     const isPinnedMessageList = messageListType === 'pinned';
     const isMainThread = messageListType === 'thread' && threadId === MAIN_THREAD_ID;
@@ -795,11 +801,12 @@ export default memo(withGlobal<OwnProps>(
     );
     const draftReplyInfo = selectDraft(global, chatId, threadId)?.replyInfo;
     const shouldBlockSendInForum = chat?.isForum
-      ? threadId === MAIN_THREAD_ID && !draftReplyInfo && (chat.topics?.[GENERAL_TOPIC_ID]?.isClosed)
+      ? threadId === MAIN_THREAD_ID && !draftReplyInfo && (selectTopic(global, chatId, GENERAL_TOPIC_ID)?.isClosed)
       : false;
     const audioMessage = audioChatId && audioMessageId
       ? selectChatMessage(global, audioChatId, audioMessageId)
       : undefined;
+    const topics = selectTopics(global, chatId);
 
     const isSavedDialog = getIsSavedDialog(chatId, threadId, global.currentUserId);
     const canShowOpenChatButton = isSavedDialog && threadId !== ANONYMOUS_USER_ID;
@@ -855,6 +862,7 @@ export default memo(withGlobal<OwnProps>(
       isSavedDialog,
       canShowOpenChatButton,
       isContactRequirePremium,
+      topics,
     };
   },
 )(MiddleColumn));

@@ -17,7 +17,7 @@ import {
   selectCanAutoPlayMedia,
   selectTheme,
 } from '../../../global/selectors';
-import { getMessageKey } from '../../../util/messageKey';
+import { getMessageKey } from '../../../util/keys/messageKey';
 import { AlbumRectPart } from './helpers/calculateAlbumLayout';
 import withSelectControl from './hocs/withSelectControl';
 
@@ -124,6 +124,7 @@ const Album: FC<OwnProps & StateProps> = ({
           onCancelUpload={handleCancelUpload}
           isDownloading={photo.mediaType !== 'extendedMediaPreview' && getIsDownloading(activeDownloads, photo)}
           theme={theme}
+          noSelectControls={album.isPaidMedia}
         />
       );
     } else if (video) {
@@ -142,6 +143,7 @@ const Album: FC<OwnProps & StateProps> = ({
           onCancelUpload={handleCancelUpload}
           isDownloading={video.mediaType !== 'extendedMediaPreview' && getIsDownloading(activeDownloads, video)}
           theme={theme}
+          noSelectControls={album.isPaidMedia}
         />
       );
     }

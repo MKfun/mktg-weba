@@ -5,18 +5,18 @@ import { PaymentStep } from '../../../types';
 
 import { DEBUG_PAYMENT_SMART_GLOCAL } from '../../../config';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
-import { buildCollectionByKey } from '../../../util/iteratees';
 import * as langProvider from '../../../util/oldLangProvider';
 import { getStripeError } from '../../../util/payments/stripe';
 import { buildQueryString } from '../../../util/requestQuery';
 import { extractCurrentThemeParams } from '../../../util/themeStyle';
 import { callApi } from '../../../api/gramjs';
 import { isChatChannel, isChatSuperGroup } from '../../helpers';
-import { getRequestInputInvoice } from '../../helpers/payments';
+import { getRequestInputInvoice, getStarsTransactionFromGift } from '../../helpers/payments';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
-  addChats,
-  addUsers, appendStarsTransactions, closeInvoice,
+  appendStarsTransactions, closeInvoice,
+  openStarsTransactionFromReceipt,
+  openStarsTransactionModal,
   setInvoiceInfo, setPaymentForm,
   setPaymentStep,
   setReceipt,
@@ -24,7 +24,6 @@ import {
   setSmartGlocalCardInfo, setStripeCardInfo,
   updateChatFullInfo,
   updatePayment,
-  updateReceiptFromStarsTransaction,
   updateShippingOptions,
   updateStarsBalance,
 } from '../../reducers';
@@ -32,6 +31,7 @@ import { updateTabState } from '../../reducers/tabs';
 import {
   selectChat,
   selectChatFullInfo,
+  selectChatMessage,
   selectPaymentFormId,
   selectPaymentInputInvoice, selectPaymentRequestId,
   selectProviderPublicToken,
@@ -103,12 +103,11 @@ async function getPaymentForm<T extends GlobalState>(
   }
 
   const {
-    form, invoice, users,
+    form, invoice,
   } = result;
 
   global = getGlobal();
 
-  global = addUsers(global, buildCollectionByKey(users, 'id'));
   global = setPaymentForm(global, form, tabId);
   global = setPaymentStep(global, PaymentStep.Checkout, tabId);
   setGlobal(global);
@@ -131,14 +130,12 @@ addActionHandler('getReceipt', async (global, actions, payload): Promise<void> =
   }
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
-  global = setReceipt(global, result.receipt, tabId);
+  if (result.receipt.type === 'stars') {
+    global = openStarsTransactionFromReceipt(global, result.receipt, tabId);
+  } else {
+    global = setReceipt(global, result.receipt, tabId);
+  }
   setGlobal(global);
-});
-
-addActionHandler('getStarsReceipt', (global, actions, payload): ActionReturnType => {
-  const { transaction, tabId = getCurrentTabId() } = payload;
-  return updateReceiptFromStarsTransaction(global, transaction, tabId);
 });
 
 addActionHandler('clearPaymentError', (global, actions, payload): ActionReturnType => {
@@ -429,7 +426,6 @@ addActionHandler('openPremiumModal', async (global, actions, payload): Promise<v
   if (!result) return;
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
 
   global = updateTabState(global, {
     premiumModal: {
@@ -511,7 +507,46 @@ addActionHandler('closePremiumGiftingModal', (global, actions, payload): ActionR
   }, tabId);
 });
 
-addActionHandler('openGiftPremiumModal', async (global, actions, payload): Promise<void> => {
+addActionHandler('openStarsGiftingModal', (global, actions, payload): ActionReturnType => {
+  const {
+    tabId = getCurrentTabId(),
+  } = payload || {};
+
+  global = getGlobal();
+
+  global = updateTabState(global, {
+    starsGiftingModal: {
+      isOpen: true,
+    },
+  }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('closeStarsGiftingModal', (global, actions, payload): ActionReturnType => {
+  const { tabId = getCurrentTabId() } = payload || {};
+
+  return updateTabState(global, {
+    starsGiftingModal: undefined,
+  }, tabId);
+});
+
+addActionHandler('openStarsTransactionFromGift', (global, actions, payload): ActionReturnType => {
+  const {
+    chatId,
+    messageId,
+    tabId = getCurrentTabId(),
+  } = payload || {};
+
+  const message = selectChatMessage(global, chatId, messageId);
+  if (!message) return undefined;
+
+  const transaction = getStarsTransactionFromGift(message);
+  if (!transaction) return undefined;
+
+  return openStarsTransactionModal(global, transaction, tabId);
+});
+
+addActionHandler('openPremiumGiftModal', async (global, actions, payload): Promise<void> => {
   const {
     forUserIds, tabId = getCurrentTabId(),
   } = payload || {};
@@ -519,12 +554,11 @@ addActionHandler('openGiftPremiumModal', async (global, actions, payload): Promi
   if (!result) return;
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
 
   const gifts = await callApi('getPremiumGiftCodeOptions', {});
 
   global = updateTabState(global, {
-    giftPremiumModal: {
+    giftModal: {
       isOpen: true,
       forUserIds,
       gifts,
@@ -533,10 +567,36 @@ addActionHandler('openGiftPremiumModal', async (global, actions, payload): Promi
   setGlobal(global);
 });
 
-addActionHandler('closeGiftPremiumModal', (global, actions, payload): ActionReturnType => {
+addActionHandler('closePremiumGiftModal', (global, actions, payload): ActionReturnType => {
   const { tabId = getCurrentTabId() } = payload || {};
   global = updateTabState(global, {
-    giftPremiumModal: { isOpen: false },
+    giftModal: { isOpen: false },
+  }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('openStarsGiftModal', async (global, actions, payload): Promise<void> => {
+  const {
+    forUserId,
+    tabId = getCurrentTabId(),
+  } = payload || {};
+
+  const starsGiftOptions = await callApi('getStarsGiftOptions', {});
+
+  global = updateTabState(global, {
+    starsGiftModal: {
+      isOpen: true,
+      forUserId,
+      starsGiftOptions,
+    },
+  }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('closeStarsGiftModal', (global, actions, payload): ActionReturnType => {
+  const { tabId = getCurrentTabId() } = payload || {};
+  global = updateTabState(global, {
+    starsGiftModal: { isOpen: false },
   }, tabId);
   setGlobal(global);
 });
@@ -620,8 +680,6 @@ addActionHandler('openBoostModal', async (global, actions, payload): Promise<voi
   const tabState = selectTabState(global, tabId);
   if (!tabState.boostModal) return;
 
-  global = addChats(global, buildCollectionByKey(myBoosts.chats, 'id'));
-  global = addUsers(global, buildCollectionByKey(myBoosts.users, 'id'));
   global = updateTabState(global, {
     boostModal: {
       ...tabState.boostModal,
@@ -660,8 +718,6 @@ addActionHandler('openBoostStatistics', async (global, actions, payload): Promis
     return;
   }
 
-  const totalBoostUserList = [...boostListResult.users, ...boostListGiftResult.users];
-  global = addUsers(global, buildCollectionByKey(totalBoostUserList, 'id'));
   global = updateTabState(global, {
     boostStatistics: {
       chatId,
@@ -675,6 +731,20 @@ addActionHandler('openBoostStatistics', async (global, actions, payload): Promis
         count: boostListGiftResult?.count,
         list: boostListGiftResult?.boostList,
       },
+    },
+  }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('openMonetizationStatistics', (global, actions, payload): ActionReturnType => {
+  const { chatId, tabId = getCurrentTabId() } = payload;
+
+  const chat = selectChat(global, chatId);
+  if (!chat) return;
+
+  global = updateTabState(global, {
+    monetizationStatistics: {
+      chatId,
     },
   }, tabId);
   setGlobal(global);
@@ -704,7 +774,6 @@ addActionHandler('loadMoreBoosters', async (global, actions, payload): Promise<v
   if (!result) return;
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
 
   tabState = selectTabState(global, tabId);
   if (!tabState.boostStatistics) return;
@@ -815,8 +884,6 @@ addActionHandler('applyBoost', async (global, actions, payload): Promise<void> =
   }
 
   tabState = selectTabState(global, tabId);
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
-  global = addChats(global, buildCollectionByKey(result.chats, 'id'));
   if (oldChatFullInfo) {
     global = updateChatFullInfo(global, chatId, {
       boostsApplied: oldBoostsApplied + slots.length,
@@ -850,8 +917,6 @@ addActionHandler('checkGiftCode', async (global, actions, payload): Promise<void
   }
 
   global = getGlobal();
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
-  global = addChats(global, buildCollectionByKey(result.chats, 'id'));
   global = updateTabState(global, {
     giftCodeModal: {
       slug,
@@ -923,8 +988,6 @@ addActionHandler('loadStarStatus', async (global): Promise<void> => {
   }
 
   global = getGlobal();
-  global = addChats(global, buildCollectionByKey(status.chats, 'id'));
-  global = addUsers(global, buildCollectionByKey(status.users, 'id'));
 
   global = {
     ...global,
@@ -939,7 +1002,9 @@ addActionHandler('loadStarStatus', async (global): Promise<void> => {
       },
     },
   };
-  global = appendStarsTransactions(global, 'all', status.history, status.nextOffset);
+  if (status.history) {
+    global = appendStarsTransactions(global, 'all', status.history, status.nextOffset);
+  }
   setGlobal(global);
 });
 
@@ -961,10 +1026,10 @@ addActionHandler('loadStarsTransactions', async (global, actions, payload): Prom
   }
 
   global = getGlobal();
-  global = addChats(global, buildCollectionByKey(result.chats, 'id'));
-  global = addUsers(global, buildCollectionByKey(result.users, 'id'));
 
   global = updateStarsBalance(global, result.balance);
-  global = appendStarsTransactions(global, type, result.history, result.nextOffset);
+  if (result.history) {
+    global = appendStarsTransactions(global, type, result.history, result.nextOffset);
+  }
   setGlobal(global);
 });

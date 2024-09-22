@@ -26,7 +26,7 @@ import {
   MAX_BUFFER_SIZE,
 } from '../../util/windowEnvironment';
 import { getDocumentHasPreview } from '../../components/common/helpers/documentInfo';
-import { getAttachmentType, matchLinkInMessageText } from './messages';
+import { getAttachmentMediaType, matchLinkInMessageText } from './messages';
 
 export type MediaWithThumbs = ApiPhoto | ApiVideo | ApiDocument | ApiSticker | ApiMediaExtendedPreview;
 export type DownloadableMedia = ApiPhoto | ApiVideo | ApiDocument | ApiSticker | ApiAudio | ApiVoice | ApiWebDocument;
@@ -284,14 +284,18 @@ export function getPhotoMediaHash(photo: ApiPhoto | ApiDocument, target: Target,
     case 'preview':
       return `${base}?size=${isAction ? 'b' : 'x'}`;
     case 'download':
-      return !isVideo ? base : getVideoAvatarMediaHash(photo);
+      return !isVideo ? base : getVideoProfilePhotoMediaHash(photo);
     case 'full':
     default:
       return base;
   }
 }
 
-export function getVideoAvatarMediaHash(photo: ApiPhoto) {
+export function getProfilePhotoMediaHash(photo: ApiPhoto) {
+  return `photo${photo.id}?size=c`;
+}
+
+export function getVideoProfilePhotoMediaHash(photo: ApiPhoto) {
   if (!photo.isVideo) return undefined;
   return `photo${photo.id}?size=u`;
 }
@@ -313,6 +317,10 @@ export function getVideoMediaHash(video: ApiVideo | ApiDocument, target: Target)
     default:
       return appendProgressiveQueryParameters(video, base);
   }
+}
+
+export function getVideoPreviewMediaHash(video: ApiVideo) {
+  return video.hasVideoPreview ? `document${video.id}?size=v` : undefined;
 }
 
 export function getDocumentMediaHash(document: ApiDocument, target: Target) {
@@ -610,10 +618,10 @@ export function canReplaceMessageMedia(message: ApiMessage, attachment: ApiAttac
   const isFile = Boolean(getMessageAudio(message)
     || getMessageVoice(message) || getMessageDocument(message));
 
-  const fileType = getAttachmentType(attachment);
+  const fileType = getAttachmentMediaType(attachment);
 
   return (
-    (isPhotoOrVideo && (fileType === 'image' || fileType === 'video'))
+    (isPhotoOrVideo && (fileType === 'photo' || fileType === 'video'))
     || (isFile && (fileType === 'audio' || fileType === 'file'))
   );
 }

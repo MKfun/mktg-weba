@@ -49,7 +49,7 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
   onReset,
 }) => {
   const {
-    loadProfilePhotos,
+    loadMoreProfilePhotos,
     openPremiumModal,
     openSupportChat,
     openUrl,
@@ -59,13 +59,13 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
 
   const [isSupportDialogOpen, openSupportDialog, closeSupportDialog] = useFlag(false);
 
-  const lang = useOldLang();
+  const oldLang = useOldLang();
 
   useEffect(() => {
     if (currentUserId) {
-      loadProfilePhotos({ profileId: currentUserId });
+      loadMoreProfilePhotos({ peerId: currentUserId, isPreload: true });
     }
-  }, [currentUserId, loadProfilePhotos]);
+  }, [currentUserId]);
 
   useHistoryBack({
     isActive,
@@ -82,7 +82,7 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
       <div className="settings-main-menu">
         {currentUserId && (
           <ProfileInfo
-            userId={currentUserId}
+            peerId={currentUserId}
             canPlayVideo={Boolean(isActive)}
             forceShowSelf
           />
@@ -95,89 +95,98 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
         )}
         <ListItem
           icon="settings"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.General)}
         >
-          {lang('Telegram.GeneralSettingsViewController')}
+          {oldLang('Telegram.GeneralSettingsViewController')}
         </ListItem>
         <ListItem
           icon="animations"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Performance)}
         >
-          {lang('Animations and Performance')}
+          {oldLang('Animations and Performance')}
         </ListItem>
         <ListItem
           icon="unmute"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Notifications)}
         >
-          {lang('Notifications')}
+          {oldLang('Notifications')}
         </ListItem>
         <ListItem
           icon="data"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.DataStorage)}
         >
-          {lang('DataSettings')}
+          {oldLang('DataSettings')}
         </ListItem>
         <ListItem
           icon="lock"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Privacy)}
         >
-          {lang('PrivacySettings')}
+          {oldLang('PrivacySettings')}
         </ListItem>
         <ListItem
           icon="folder"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Folders)}
         >
-          {lang('Filters')}
+          {oldLang('Filters')}
         </ListItem>
         <ListItem
           icon="active-sessions"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.ActiveSessions)}
         >
-          {lang('SessionsTitle')}
+          {oldLang('SessionsTitle')}
           {sessionCount > 0 && (<span className="settings-item__current-value">{sessionCount}</span>)}
         </ListItem>
         <ListItem
           icon="language"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Language)}
         >
-          {lang('Language')}
-          <span className="settings-item__current-value">{lang.langName}</span>
+          {oldLang('Language')}
+          <span className="settings-item__current-value">{oldLang.langName}</span>
         </ListItem>
         <ListItem
           icon="stickers"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Stickers)}
         >
-          {lang('StickersName')}
+          {oldLang('StickersName')}
         </ListItem>
       </div>
       <div className="settings-main-menu">
         {canBuyPremium && (
           <ListItem
-            leftElement={<StarIcon className="icon" type="premium" size="big" />}
-            className="settings-main-menu-star"
+            leftElement={<StarIcon className="icon ListItem-main-icon" type="premium" size="big" />}
+            narrow
             // eslint-disable-next-line react/jsx-no-bind
             onClick={() => openPremiumModal()}
           >
-            {lang('TelegramPremium')}
+            {oldLang('TelegramPremium')}
           </ListItem>
         )}
         {shouldDisplayStars && (
           <ListItem
-            leftElement={<StarIcon className="icon" type="gold" size="big" />}
-            className="settings-main-menu-star"
+            leftElement={<StarIcon className="icon ListItem-main-icon" type="gold" size="big" />}
+            narrow
             // eslint-disable-next-line react/jsx-no-bind
             onClick={() => openStarsBalanceModal({})}
           >
-            {lang('MenuTelegramStars')}
+            {oldLang('MenuTelegramStars')}
             {Boolean(starsBalance) && (
               <span className="settings-item__current-value">{formatInteger(starsBalance)}</span>
             )}
@@ -186,41 +195,44 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
         {isGiveawayAvailable && (
           <ListItem
             icon="gift"
-            className="settings-main-menu-star"
+            narrow
             // eslint-disable-next-line react/jsx-no-bind
             onClick={() => openPremiumGiftingModal()}
           >
-            {lang('GiftPremiumGifting')}
+            {oldLang('GiftPremiumGifting')}
           </ListItem>
         )}
       </div>
       <div className="settings-main-menu">
         <ListItem
           icon="ask-support"
+          narrow
           onClick={openSupportDialog}
         >
-          {lang('AskAQuestion')}
+          {oldLang('AskAQuestion')}
         </ListItem>
         <ListItem
           icon="help"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => openUrl({ url: FAQ_URL })}
         >
-          {lang('TelegramFaq')}
+          {oldLang('TelegramFaq')}
         </ListItem>
         <ListItem
           icon="privacy-policy"
+          narrow
           // eslint-disable-next-line react/jsx-no-bind
           onClick={() => openUrl({ url: PRIVACY_URL })}
         >
-          {lang('PrivacyPolicy')}
+          {oldLang('PrivacyPolicy')}
         </ListItem>
       </div>
       <ConfirmDialog
         isOpen={isSupportDialogOpen}
-        confirmLabel={lang('lng_settings_ask_ok')}
-        title={lang('AskAQuestion')}
-        text={lang('lng_settings_ask_sure')}
+        confirmLabel={oldLang('lng_settings_ask_ok')}
+        title={oldLang('AskAQuestion')}
+        text={oldLang('lng_settings_ask_sure')}
         confirmHandler={handleOpenSupport}
         onClose={closeSupportDialog}
       />

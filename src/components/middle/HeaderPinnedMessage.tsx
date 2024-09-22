@@ -77,7 +77,7 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
 
   const handleInlineButtonClick = useLastCallback(() => {
     if (inlineButton) {
-      clickBotInlineButton({ messageId: message.id, button: inlineButton });
+      clickBotInlineButton({ chatId: message.chatId, messageId: message.id, button: inlineButton });
     }
   });
 
@@ -184,7 +184,6 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
           <Transition activeKey={message.id} name="slideVerticalFade" className={styles.messageTextTransition}>
             <p dir="auto" className={styles.summary}>
               <MessageSummary
-                lang={lang}
                 message={message}
                 noEmoji={Boolean(mediaThumbnail)}
                 emojiSize={EMOJI_SIZE}

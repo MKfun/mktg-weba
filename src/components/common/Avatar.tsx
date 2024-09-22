@@ -4,8 +4,7 @@ import React, { memo, useMemo, useRef } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type {
-  ApiChat, ApiPeer, ApiPhoto, ApiUser,
-  ApiWebDocument,
+  ApiPeer, ApiPhoto, ApiWebDocument,
 } from '../../api/types';
 import type { ObserveFn } from '../../hooks/useIntersectionObserver';
 import type { CustomPeer, StoryViewerOrigin } from '../../types';
@@ -17,14 +16,17 @@ import {
   getChatTitle,
   getPeerStoryHtmlId,
   getUserFullName,
-  getVideoAvatarMediaHash,
+  getVideoProfilePhotoMediaHash,
   getWebDocumentHash,
   isAnonymousForwardsChat,
   isChatWithRepliesBot,
   isDeletedUser,
+  isPeerChat,
+  isPeerUser,
   isUserId,
 } from '../../global/helpers';
 import buildClassName, { createClassNameBuilder } from '../../util/buildClassName';
+import buildStyle from '../../util/buildStyle';
 import { getFirstLetters } from '../../util/textFormat';
 import { getPeerColorClass } from './helpers/peerColor';
 import renderText from './helpers/renderText';
@@ -32,7 +34,7 @@ import renderText from './helpers/renderText';
 import { useFastClick } from '../../hooks/useFastClick';
 import useLastCallback from '../../hooks/useLastCallback';
 import useMedia from '../../hooks/useMedia';
-import useMediaTransition from '../../hooks/useMediaTransition';
+import useMediaTransitionDeprecated from '../../hooks/useMediaTransitionDeprecated';
 import useOldLang from '../../hooks/useOldLang';
 
 import OptimizedVideo from '../ui/OptimizedVideo';
@@ -43,7 +45,8 @@ import './Avatar.scss';
 
 const LOOP_COUNT = 3;
 
-export type AvatarSize = 'micro' | 'tiny' | 'mini' | 'small' | 'small-mobile' | 'medium' | 'large' | 'giant' | 'jumbo';
+export type AvatarSize =
+  'micro' | 'tiny' | 'mini' | 'small' | 'small-mobile' | 'medium' | 'large' | 'giant' | 'huge' | 'jumbo';
 
 const cn = createClassNameBuilder('Avatar');
 cn.media = cn('media');
@@ -102,9 +105,8 @@ const Avatar: FC<OwnProps> = ({
   const videoLoopCountRef = useRef(0);
   const isCustomPeer = peer && 'isCustomPeer' in peer;
   const realPeer = peer && !isCustomPeer ? peer : undefined;
-  const isPeerChat = realPeer && 'title' in realPeer;
-  const user = peer && !isPeerChat ? peer as ApiUser : undefined;
-  const chat = peer && isPeerChat ? peer as ApiChat : undefined;
+  const user = realPeer && isPeerUser(realPeer) ? realPeer : undefined;
+  const chat = realPeer && isPeerChat(realPeer) ? realPeer : undefined;
   const isDeleted = user && isDeletedUser(user);
   const isReplies = realPeer && isChatWithRepliesBot(realPeer.id);
   const isAnonymousForwards = realPeer && isAnonymousForwardsChat(realPeer.id);
@@ -121,7 +123,7 @@ const Avatar: FC<OwnProps> = ({
     } else if (photo) {
       imageHash = `photo${photo.id}?size=m`;
       if (photo.isVideo && withVideo) {
-        videoHash = getVideoAvatarMediaHash(photo);
+        videoHash = getVideoProfilePhotoMediaHash(photo);
       }
     } else if (webPhoto) {
       imageHash = getWebDocumentHash(webPhoto);
@@ -158,7 +160,7 @@ const Avatar: FC<OwnProps> = ({
   // `videoBlobUrl` can be taken from memory cache, so we need to check `shouldLoadVideo` again
   const shouldPlayVideo = Boolean(videoBlobUrl && shouldLoadVideo);
 
-  const transitionClassNames = useMediaTransition(hasBlobUrl);
+  const transitionClassNames = useMediaTransitionDeprecated(hasBlobUrl);
 
   const handleVideoEnded = useLastCallback((e) => {
     const video = e.currentTarget;
@@ -225,6 +227,7 @@ const Avatar: FC<OwnProps> = ({
   const isRoundedRect = (isCustomPeer && peer.isAvatarSquare)
   || (isForum && !((withStory || withStorySolid) && realPeer?.hasStories));
   const isPremiumGradient = isCustomPeer && peer.withPremiumGradient;
+  const customColor = isCustomPeer && peer.customPeerAvatarColor;
 
   const fullClassName = buildClassName(
     `Avatar size-${size}`,
@@ -273,6 +276,7 @@ const Avatar: FC<OwnProps> = ({
       data-peer-id={realPeer?.id}
       data-test-sender-id={IS_TEST ? realPeer?.id : undefined}
       aria-label={typeof content === 'string' ? author : undefined}
+      style={buildStyle(customColor && `--color-user: ${customColor}`)}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
     >
