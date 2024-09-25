@@ -102,7 +102,7 @@ function renderWithVirtual<T extends VirtualElement | undefined>(
   const isCurrentFragment = !isCurrentComponent && $current?.type === VirtualType.Fragment;
   const isNewFragment = !isNewComponent && $new?.type === VirtualType.Fragment;
 
-  if ($new?.type === VirtualType.Tag && $new.tag === 'svg') {
+  if (!isSvg && $new?.type === VirtualType.Tag && $new.tag === 'svg') {
     isSvg = true;
   }
 
@@ -623,13 +623,14 @@ function renderFragment(
   insertBefore(parentEl, fragment, nextSibling);
 }
 
-function setElementRef($element: VirtualElementTag, DOMElement: DOMElement | undefined) {
+function setElementRef($element: VirtualElementTag, element: DOMElement | undefined) {
   const { ref } = $element.props;
 
   if (typeof ref === 'object') {
-    ref.current = DOMElement;
+    ref.current = element;
+    ref.onChange?.();
   } else if (typeof ref === 'function') {
-    ref(DOMElement);
+    ref(element);
   }
 }
 
@@ -801,18 +802,7 @@ function updateStyle(element: DOMElement, value: string) {
   }
 }
 
-export function addExtraClass(element: DOMElement, className: string, forceSingle = false) {
-  if (!forceSingle) {
-    const classNames = className.split(' ');
-    if (classNames.length > 1) {
-      for (const cn of classNames) {
-        addExtraClass(element, cn, true);
-      }
-
-      return;
-    }
-  }
-
+export function addExtraClass(element: DOMElement, className: string) {
   element.classList.add(className);
 
   const classList = extraClasses.get(element);
@@ -823,18 +813,7 @@ export function addExtraClass(element: DOMElement, className: string, forceSingl
   }
 }
 
-export function removeExtraClass(element: DOMElement, className: string, forceSingle = false) {
-  if (!forceSingle) {
-    const classNames = className.split(' ');
-    if (classNames.length > 1) {
-      for (const cn of classNames) {
-        removeExtraClass(element, cn, true);
-      }
-
-      return;
-    }
-  }
-
+export function removeExtraClass(element: DOMElement, className: string) {
   element.classList.remove(className);
 
   const classList = extraClasses.get(element);
@@ -847,24 +826,15 @@ export function removeExtraClass(element: DOMElement, className: string, forceSi
   }
 }
 
-export function toggleExtraClass(element: DOMElement, className: string, force?: boolean, forceSingle = false) {
-  if (!forceSingle) {
-    const classNames = className.split(' ');
-    if (classNames.length > 1) {
-      for (const cn of classNames) {
-        toggleExtraClass(element, cn, force, true);
-      }
-
-      return;
-    }
-  }
-
-  element.classList.toggle(className, force);
-
-  if (element.classList.contains(className)) {
+export function toggleExtraClass(element: DOMElement, className: string, force?: boolean) {
+  if (force === true) {
     addExtraClass(element, className);
-  } else {
+  } else if (force === false) {
     removeExtraClass(element, className);
+  } else if (extraClasses.get(element)?.has(className)) {
+    removeExtraClass(element, className);
+  } else {
+    addExtraClass(element, className);
   }
 }
 
@@ -915,7 +885,7 @@ function DEBUG_checkKeyUniqueness(children: VirtualElementChildren) {
 
     if (keys.length !== unique(keys).length) {
       // eslint-disable-next-line no-console
-      console.warn('[Teact] Duplicated keys:', keys.filter((e, i, a) => a.indexOf(e) !== i));
+      console.warn('[Teact] Duplicated keys:', keys.filter((e, i, a) => a.indexOf(e) !== i), children);
       throw new Error('[Teact] Children keys are not unique');
     }
   }

@@ -19,6 +19,7 @@ import {
   selectShouldSchedule,
   selectStickerSet,
   selectThreadInfo,
+  selectTopic,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
@@ -27,7 +28,7 @@ import renderText from './helpers/renderText';
 import useAppLayout from '../../hooks/useAppLayout';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import useOldLang from '../../hooks/useOldLang';
-import usePrevious from '../../hooks/usePrevious';
+import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
 import useSchedule from '../../hooks/useSchedule';
 import useScrolledState from '../../hooks/useScrolledState';
 
@@ -90,7 +91,7 @@ const StickerSetModal: FC<OwnProps & StateProps> = ({
 
   const { isMobile } = useAppLayout();
 
-  const prevStickerSet = usePrevious(stickerSet);
+  const prevStickerSet = usePreviousDeprecated(stickerSet);
   const renderingStickerSet = stickerSet || prevStickerSet;
 
   const isAdded = Boolean(!renderingStickerSet?.isArchived && renderingStickerSet?.installedDate);
@@ -263,8 +264,9 @@ export default memo(withGlobal<OwnProps>(
     const sendOptions = chat ? getAllowedAttachmentOptions(chat, chatFullInfo) : undefined;
     const threadInfo = chatId && threadId ? selectThreadInfo(global, chatId, threadId) : undefined;
     const isMessageThread = Boolean(!threadInfo?.isCommentsInfo && threadInfo?.fromChannelId);
+    const topic = chatId && threadId ? selectTopic(global, chatId, threadId) : undefined;
     const canSendStickers = Boolean(
-      chat && threadId && getCanPostInChat(chat, threadId, isMessageThread, chatFullInfo)
+      chat && threadId && getCanPostInChat(chat, topic, isMessageThread, chatFullInfo)
         && sendOptions?.canSendStickers,
     );
     const isSavedMessages = Boolean(chatId) && selectIsChatWithSelf(global, chatId);

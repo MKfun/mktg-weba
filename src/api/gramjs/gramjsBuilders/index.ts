@@ -22,7 +22,6 @@ import type {
   ApiReportReason,
   ApiRequestInputInvoice,
   ApiSendMessageAction,
-  ApiStarTopupOption,
   ApiSticker,
   ApiStory,
   ApiStorySkipped,
@@ -544,6 +543,23 @@ export function buildInputPhoneCall({ id, accessHash }: ApiPhoneCall) {
 
 export function buildInputStorePaymentPurpose(purpose: ApiInputStorePaymentPurpose):
 GramJs.TypeInputStorePaymentPurpose {
+  if (purpose.type === 'stars') {
+    return new GramJs.InputStorePaymentStarsTopup({
+      stars: BigInt(purpose.stars),
+      currency: purpose.currency,
+      amount: BigInt(purpose.amount),
+    });
+  }
+
+  if (purpose.type === 'starsgift') {
+    return new GramJs.InputStorePaymentStarsGift({
+      userId: buildInputEntity(purpose.user.id, purpose.user.accessHash) as GramJs.InputUser,
+      stars: BigInt(purpose.stars),
+      currency: purpose.currency,
+      amount: BigInt(purpose.amount),
+    });
+  }
+
   if (purpose.type === 'giftcode') {
     return new GramJs.InputStorePaymentPremiumGiftCode({
       users: purpose.users.map((user) => buildInputEntity(user.id, user.accessHash) as GramJs.InputUser),
@@ -556,6 +572,23 @@ GramJs.TypeInputStorePaymentPurpose {
   }
 
   const randomId = generateRandomBigInt();
+
+  if (purpose.type === 'starsgiveaway') {
+    return new GramJs.InputStorePaymentStarsGiveaway({
+      boostPeer: buildInputPeer(purpose.chat.id, purpose.chat.accessHash),
+      additionalPeers: purpose.additionalChannels?.map((chat) => buildInputPeer(chat.id, chat.accessHash)),
+      stars: BigInt(purpose.stars!),
+      countriesIso2: purpose.countries,
+      prizeDescription: purpose.prizeDescription,
+      onlyNewSubscribers: purpose.isOnlyForNewSubscribers || undefined,
+      winnersAreVisible: purpose.areWinnersVisible || undefined,
+      untilDate: purpose.untilDate,
+      currency: purpose.currency,
+      amount: BigInt(purpose.amount),
+      users: purpose.users,
+      randomId,
+    });
+  }
 
   return new GramJs.InputStorePaymentPremiumGiveaway({
     boostPeer: buildInputPeer(purpose.chat.id, purpose.chat.accessHash),
@@ -580,15 +613,6 @@ function buildPremiumGiftCodeOption(optionData: ApiPremiumGiftCodeOption) {
   });
 }
 
-function buildInputStarsTopupOption(option: ApiStarTopupOption) {
-  return new GramJs.StarsTopupOption({
-    stars: BigInt(option.stars),
-    amount: BigInt(option.amount),
-    currency: option.currency,
-    extended: option.isExtended,
-  });
-}
-
 export function buildInputInvoice(invoice: ApiRequestInputInvoice) {
   switch (invoice.type) {
     case 'message': {
@@ -605,8 +629,16 @@ export function buildInputInvoice(invoice: ApiRequestInputInvoice) {
     }
 
     case 'stars': {
+      const purpose = buildInputStorePaymentPurpose(invoice.purpose);
       return new GramJs.InputInvoiceStars({
-        option: buildInputStarsTopupOption(invoice.option),
+        purpose,
+      });
+    }
+
+    case 'starsgiveaway': {
+      const purpose = buildInputStorePaymentPurpose(invoice.purpose);
+      return new GramJs.InputInvoiceStars({
+        purpose,
       });
     }
 

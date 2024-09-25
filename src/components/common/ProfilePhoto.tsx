@@ -8,8 +8,10 @@ import type { ApiChat, ApiPhoto, ApiUser } from '../../api/types';
 import {
   getChatAvatarHash,
   getChatTitle,
+  getPhotoMediaHash,
+  getProfilePhotoMediaHash,
   getUserFullName,
-  getVideoAvatarMediaHash,
+  getVideoProfilePhotoMediaHash,
   isAnonymousForwardsChat,
   isChatWithRepliesBot,
   isDeletedUser,
@@ -25,7 +27,7 @@ import useAppLayout from '../../hooks/useAppLayout';
 import useCanvasBlur from '../../hooks/useCanvasBlur';
 import useFlag from '../../hooks/useFlag';
 import useMedia from '../../hooks/useMedia';
-import useMediaTransition from '../../hooks/useMediaTransition';
+import useMediaTransitionDeprecated from '../../hooks/useMediaTransitionDeprecated';
 import useOldLang from '../../hooks/useOldLang';
 
 import OptimizedVideo from '../ui/OptimizedVideo';
@@ -62,28 +64,30 @@ const ProfilePhoto: FC<OwnProps> = ({
   const isDeleted = user && isDeletedUser(user);
   const isRepliesChat = chat && isChatWithRepliesBot(chat.id);
   const isAnonymousForwards = chat && isAnonymousForwardsChat(chat.id);
-  const peer = user || chat;
+  const peer = (user || chat)!;
   const canHaveMedia = peer && !isSavedMessages && !isDeleted && !isRepliesChat && !isAnonymousForwards;
   const { isVideo } = photo || {};
 
-  const avatarHash = canHaveMedia && getChatAvatarHash(peer, 'normal');
-  const avatarBlobUrl = useMedia(avatarHash);
+  const avatarHash = (!photo || photo.id === peer.avatarPhotoId) && getChatAvatarHash(peer, 'normal');
 
-  const photoHash = canHaveMedia && photo && !isVideo && `photo${photo.id}?size=c`;
+  const previewHash = canHaveMedia && photo && !avatarHash && getPhotoMediaHash(photo, 'pictogram');
+  const previewBlobUrl = useMedia(previewHash || avatarHash);
+
+  const photoHash = canHaveMedia && photo && !isVideo && getProfilePhotoMediaHash(photo);
   const photoBlobUrl = useMedia(photoHash);
 
-  const videoHash = canHaveMedia && photo && isVideo && getVideoAvatarMediaHash(photo);
+  const videoHash = canHaveMedia && photo && isVideo && getVideoProfilePhotoMediaHash(photo);
   const videoBlobUrl = useMedia(videoHash);
 
   const fullMediaData = videoBlobUrl || photoBlobUrl;
   const [isVideoReady, markVideoReady] = useFlag();
   const isFullMediaReady = Boolean(fullMediaData && (!isVideo || isVideoReady));
-  const transitionClassNames = useMediaTransition(isFullMediaReady);
-  const isBlurredThumb = canHaveMedia && !isFullMediaReady && !avatarBlobUrl && photo?.thumbnail?.dataUri;
+  const transitionClassNames = useMediaTransitionDeprecated(isFullMediaReady);
+  const isBlurredThumb = canHaveMedia && !isFullMediaReady && !previewBlobUrl && photo?.thumbnail?.dataUri;
   const blurredThumbCanvasRef = useCanvasBlur(
     photo?.thumbnail?.dataUri, !isBlurredThumb, isMobile && !IS_CANVAS_FILTER_SUPPORTED,
   );
-  const hasMedia = photo || avatarBlobUrl || isBlurredThumb;
+  const hasMedia = photo || previewBlobUrl || isBlurredThumb;
 
   useEffect(() => {
     if (videoRef.current && !canPlayVideo) {
@@ -119,9 +123,9 @@ const ProfilePhoto: FC<OwnProps> = ({
     content = (
       <>
         {isBlurredThumb ? (
-          <canvas ref={blurredThumbCanvasRef} className="thumb canvas-blur-setup" />
+          <canvas ref={blurredThumbCanvasRef} className="thumb" />
         ) : (
-          <img src={avatarBlobUrl} draggable={false} className="thumb" alt="" />
+          <img src={previewBlobUrl} draggable={false} className="thumb" alt="" />
         )}
         {photo && (
           isVideo ? (

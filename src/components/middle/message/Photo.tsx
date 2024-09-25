@@ -8,10 +8,7 @@ import type { IMediaDimensions } from './helpers/calculateAlbumLayout';
 import { CUSTOM_APPENDIX_ATTRIBUTE, MESSAGE_CONTENT_SELECTOR } from '../../../config';
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import {
-  getMediaFormat,
-  getMediaThumbUri,
-  getMediaTransferState,
-  getPhotoMediaHash,
+  getMediaFormat, getMediaThumbUri, getMediaTransferState, getPhotoMediaHash,
 } from '../../../global/helpers';
 import buildClassName from '../../../util/buildClassName';
 import getCustomAppendixBg from './helpers/getCustomAppendixBg';
@@ -24,7 +21,7 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useLayoutEffectWithPrevDeps from '../../../hooks/useLayoutEffectWithPrevDeps';
 import useMediaTransition from '../../../hooks/useMediaTransition';
 import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
-import usePrevious from '../../../hooks/usePrevious';
+import usePreviousDeprecated from '../../../hooks/usePreviousDeprecated';
 import useShowTransition from '../../../hooks/useShowTransition';
 import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 
@@ -105,8 +102,8 @@ const Photo = <T,>({
   const [withThumb] = useState(!fullMediaData);
   const noThumb = Boolean(fullMediaData);
   const thumbRef = useBlurredMediaThumbRef(photo, noThumb);
+  useMediaTransition(!noThumb, { ref: thumbRef });
   const blurredBackgroundRef = useBlurredMediaThumbRef(photo, !withBlurredBackground);
-  const thumbClassNames = useMediaTransition(!noThumb);
   const thumbDataUri = getMediaThumbUri(photo);
 
   const [isSpoilerShown, showSpoiler, hideSpoiler] = useFlag(isPaidPreview || photo.isSpoiler);
@@ -134,16 +131,24 @@ const Photo = <T,>({
     shouldLoad && !fullMediaData,
     uploadProgress !== undefined,
   );
-  const wasLoadDisabled = usePrevious(isLoadAllowed) === false;
+  const wasLoadDisabled = usePreviousDeprecated(isLoadAllowed) === false;
 
   const {
+    ref: spinnerRef,
     shouldRender: shouldRenderSpinner,
-    transitionClassNames: spinnerClassNames,
-  } = useShowTransition(isTransferring, undefined, wasLoadDisabled, 'slow');
+  } = useShowTransition({
+    isOpen: isTransferring,
+    noMountTransition: wasLoadDisabled,
+    className: 'slow',
+    withShouldRender: true,
+  });
   const {
+    ref: downloadButtonRef,
     shouldRender: shouldRenderDownloadButton,
-    transitionClassNames: downloadButtonClassNames,
-  } = useShowTransition(!fullMediaData && !isLoadAllowed);
+  } = useShowTransition({
+    isOpen: !fullMediaData && !isLoadAllowed,
+    withShouldRender: true,
+  });
 
   const handleClick = useLastCallback((e: React.MouseEvent<HTMLElement>) => {
     if (isUploading) {
@@ -174,7 +179,8 @@ const Photo = <T,>({
 
     const contentEl = ref.current!.closest<HTMLDivElement>(MESSAGE_CONTENT_SELECTOR)!;
     if (fullMediaData) {
-      getCustomAppendixBg(fullMediaData, Boolean(isOwn), isSelected, theme).then((appendixBg) => {
+      const messageId = Number(contentEl.closest<HTMLDivElement>('.Message')!.dataset.messageId);
+      getCustomAppendixBg(fullMediaData, Boolean(isOwn), messageId, isSelected, theme).then((appendixBg) => {
         requestMutation(() => {
           contentEl.style.setProperty('--appendix-bg', appendixBg);
           contentEl.setAttribute(CUSTOM_APPENDIX_ATTRIBUTE, '');
@@ -216,29 +222,27 @@ const Photo = <T,>({
       onClick={isUploading ? undefined : handleClick}
     >
       {withBlurredBackground && (
-        <canvas ref={blurredBackgroundRef} className="thumbnail canvas-blur-setup blurred-bg" />
+        <canvas ref={blurredBackgroundRef} className="thumbnail blurred-bg" />
       )}
-      <img
-        src={fullMediaData}
-        className={buildClassName('full-media', withBlurredBackground && 'with-blurred-bg')}
-        alt=""
-        style={forcedWidth ? `width: ${forcedWidth}px` : undefined}
-        draggable={!isProtected}
-      />
-      {withThumb && (
-        <canvas
-          ref={thumbRef}
-          className={buildClassName('thumbnail', !noThumb && 'canvas-blur-setup', thumbClassNames)}
+      {fullMediaData && (
+        <img
+          src={fullMediaData}
+          className={buildClassName('full-media', withBlurredBackground && 'with-blurred-bg')}
+          alt=""
+          style={forcedWidth ? `width: ${forcedWidth}px` : undefined}
+          draggable={!isProtected}
         />
+      )}
+      {withThumb && (
+        <canvas ref={thumbRef} className="thumbnail" />
       )}
       {isProtected && <span className="protector" />}
       {shouldRenderSpinner && !shouldRenderDownloadButton && (
-        <div className={`media-loading ${spinnerClassNames}`}>
+        <div ref={spinnerRef} className="media-loading">
           <ProgressSpinner progress={transferProgress} onClick={isUploading ? handleClick : undefined} />
         </div>
       )}
-      {shouldRenderDownloadButton
-        && <i className={buildClassName('icon', 'icon-download', downloadButtonClassNames)} />}
+      {shouldRenderDownloadButton && <i ref={downloadButtonRef} className="icon icon-download" />}
       <MediaSpoiler
         isVisible={isSpoilerShown}
         withAnimation

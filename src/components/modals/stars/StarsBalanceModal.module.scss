@@ -1,7 +1,7 @@
 @use '../../../styles/mixins';
 
 .root {
-  z-index: calc(var(--z-media-viewer) - 1);
+  z-index: calc(var(--z-modal-low-priority) + 1);
 }
 
 .root :global(.modal-content) {
@@ -22,6 +22,11 @@
 .main {
   height: 100%;
   overflow-y: scroll;
+}
+
+.container {
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 .section {
@@ -131,67 +136,10 @@
   z-index: 3;
 }
 
-.options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.option {
-  --_background-color: var(--color-background-secondary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.125rem;
-
-  padding: 1rem;
-  border-radius: 0.625rem;
-
-  background-color: var(--_background-color);
-  transition: background-color 0.25s ease-out;
-
-  cursor: var(--custom-cursor, pointer);
-
-  &:hover {
-    --_background-color: var(--color-background-secondary-accent);
-  }
-}
-
-.optionTop {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-
-  font-weight: 500;
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.stackedStars {
-  display: grid;
-  grid-auto-columns: 0.4375rem;
-  grid-auto-flow: column;
-  justify-items: end;
-}
-
-.stackedStar {
-  @include mixins.filter-outline(0.0625rem, var(--_background-color));
-}
-
-.optionBottom {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
-.moreOptions {
+.starButton {
   grid-column: 1/-1;
-}
-
-.iconDown {
-  margin-inline-start: 0.25rem;
-  font-size: 1.5rem;
+  gap: 1rem;
+  margin-top: 0.5rem;
 }
 
 .paymentContent {

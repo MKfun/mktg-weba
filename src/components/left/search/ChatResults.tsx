@@ -16,6 +16,7 @@ import {
 import { selectSimilarChannelIds, selectTabState } from '../../../global/selectors';
 import { getOrderedIds } from '../../../util/folderManager';
 import { unique } from '../../../util/iteratees';
+import { parseSearchResultKey, type SearchResultKey } from '../../../util/keys/searchResultKey';
 import { MEMO_EMPTY_ARRAY } from '../../../util/memo';
 import { throttle } from '../../../util/schedulers';
 import { renderMessageSummary } from '../../common/helpers/renderMessageText';
@@ -27,7 +28,7 @@ import useHorizontalScroll from '../../../hooks/useHorizontalScroll';
 import useOldLang from '../../../hooks/useOldLang';
 
 import NothingFound from '../../common/NothingFound';
-import PickerSelectedItem from '../../common/PickerSelectedItem';
+import PickerSelectedItem from '../../common/pickers/PickerSelectedItem';
 import InfiniteScroll from '../../ui/InfiniteScroll';
 import Link from '../../ui/Link';
 import ChatMessage from './ChatMessage';
@@ -49,7 +50,7 @@ type StateProps = {
   contactIds?: string[];
   accountPeerIds?: string[];
   globalPeerIds?: string[];
-  foundIds?: string[];
+  foundIds?: SearchResultKey[];
   globalMessagesByChatId?: Record<string, { byId: Record<number, ApiMessage> }>;
   fetchingStatus?: { chats?: boolean; messages?: boolean };
   suggestedChannelIds?: string[];
@@ -191,12 +192,12 @@ const ChatResults: FC<OwnProps & StateProps> = ({
 
     return foundIds
       .map((id) => {
-        const [chatId, messageId] = id.split('_');
+        const [chatId, messageId] = parseSearchResultKey(id);
         const chat = chatsById[chatId];
         if (!chat) return undefined;
         if (isChannelList && !isChatChannel(chat)) return undefined;
 
-        return globalMessagesByChatId?.[chatId]?.byId[Number(messageId)];
+        return globalMessagesByChatId?.[chatId]?.byId[messageId];
       })
       .filter(Boolean);
   }, [searchQuery, searchDate, foundIds, isChannelList, globalMessagesByChatId]);
@@ -237,7 +238,7 @@ const ChatResults: FC<OwnProps & StateProps> = ({
 
   return (
     <InfiniteScroll
-      className="LeftSearch custom-scroll"
+      className="LeftSearch--content custom-scroll"
       items={foundMessages}
       onLoadMore={handleLoadMore}
       // To prevent scroll jumps caused by delayed local results rendering

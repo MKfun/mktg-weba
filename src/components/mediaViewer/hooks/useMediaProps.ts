@@ -10,8 +10,9 @@ import {
   getMediaHash,
   getMediaThumbUri,
   getPhotoFullDimensions,
-  getVideoAvatarMediaHash,
+  getProfilePhotoMediaHash,
   getVideoDimensions,
+  getVideoProfilePhotoMediaHash,
   isDocumentPhoto,
   isDocumentVideo,
 } from '../../../global/helpers';
@@ -20,6 +21,8 @@ import { AVATAR_FULL_DIMENSIONS, VIDEO_AVATAR_FULL_DIMENSIONS } from '../../comm
 import useBlurSync from '../../../hooks/useBlurSync';
 import useMedia from '../../../hooks/useMedia';
 import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
+
+const FALLBACK_DIMENSIONS = AVATAR_FULL_DIMENSIONS;
 
 type UseMediaProps = {
   media?: MediaViewerMedia;
@@ -34,6 +37,7 @@ export const useMediaProps = ({
   origin,
   delay,
 }: UseMediaProps) => {
+  const isPhotoAvatar = isAvatar && media?.mediaType === 'photo' && !media.isVideo;
   const isVideoAvatar = isAvatar && media?.mediaType === 'photo' && media.isVideo;
   const isDocument = media?.mediaType === 'document';
   const isVideo = (media?.mediaType === 'video' && !media.isRound) || (isDocument && isDocumentVideo(media));
@@ -45,12 +49,16 @@ export const useMediaProps = ({
   const getMediaOrAvatarHash = useMemo(() => (isFull?: boolean) => {
     if (!media) return undefined;
 
+    if ((isPhotoAvatar || isVideoAvatar) && !isFull) {
+      return getProfilePhotoMediaHash(media);
+    }
+
     if (isVideoAvatar && isFull) {
-      return getVideoAvatarMediaHash(media);
+      return getVideoProfilePhotoMediaHash(media);
     }
 
     return getMediaHash(media, isFull ? 'full' : 'preview');
-  }, [isVideoAvatar, media]);
+  }, [isVideoAvatar, isPhotoAvatar, media]);
 
   const pictogramBlobUrl = useMedia(
     media
@@ -111,7 +119,8 @@ export const useMediaProps = ({
     if (isVideo) {
       return getVideoDimensions(media);
     }
-    return undefined;
+
+    return FALLBACK_DIMENSIONS;
   }, [isAvatar, isDocument, isPhoto, isVideo, isVideoAvatar, media]);
 
   return {

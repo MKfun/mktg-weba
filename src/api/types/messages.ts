@@ -2,7 +2,10 @@ import type { ThreadId } from '../../types';
 import type { ApiWebDocument } from './bots';
 import type { ApiGroupCall, PhoneCallAction } from './calls';
 import type { ApiChat, ApiPeerColor } from './chats';
-import type { ApiInputStorePaymentPurpose, ApiPremiumGiftCodeOption, ApiStarTopupOption } from './payments';
+import type {
+  ApiInputStorePaymentPurpose,
+  ApiPremiumGiftCodeOption,
+} from './payments';
 import type { ApiMessageStoryData, ApiWebPageStickerData, ApiWebPageStoryData } from './stories';
 
 export interface ApiDimensions {
@@ -98,6 +101,7 @@ export interface ApiVideo {
   supportsStreaming?: boolean;
   isRound?: boolean;
   isGif?: boolean;
+  hasVideoPreview?: boolean;
   isSpoiler?: boolean;
   thumbnail?: ApiThumbnail;
   blobUrl?: string;
@@ -231,11 +235,36 @@ export type ApiInputInvoiceGiftCode = {
 
 export type ApiInputInvoiceStars = {
   type: 'stars';
-  option: ApiStarTopupOption;
+  stars: number;
+  currency: string;
+  amount: number;
+};
+
+export type ApiInputInvoiceStarsGift = {
+  type: 'starsgift';
+  userId: string;
+  stars: number;
+  currency: string;
+  amount: number;
+};
+
+export type ApiInputInvoiceStarsGiveaway = {
+  type: 'starsgiveaway';
+  chatId: string;
+  additionalChannelIds?: string[];
+  isOnlyForNewSubscribers?: boolean;
+  areWinnersVisible?: boolean;
+  prizeDescription?: string;
+  countries?: string[];
+  untilDate: number;
+  currency: string;
+  amount: number;
+  stars: number;
+  users: number;
 };
 
 export type ApiInputInvoice = ApiInputInvoiceMessage | ApiInputInvoiceSlug | ApiInputInvoiceGiveaway
-| ApiInputInvoiceGiftCode | ApiInputInvoiceStars;
+| ApiInputInvoiceGiftCode | ApiInputInvoiceStarsGift | ApiInputInvoiceStars | ApiInputInvoiceStarsGiveaway;
 
 /* Used for Invoice request */
 export type ApiRequestInputInvoiceMessage = {
@@ -257,11 +286,16 @@ export type ApiRequestInputInvoiceGiveaway = {
 
 export type ApiRequestInputInvoiceStars = {
   type: 'stars';
-  option: ApiStarTopupOption;
+  purpose: ApiInputStorePaymentPurpose;
+};
+
+export type ApiRequestInputInvoiceStarsGiveaway = {
+  type: 'starsgiveaway';
+  purpose: ApiInputStorePaymentPurpose;
 };
 
 export type ApiRequestInputInvoice = ApiRequestInputInvoiceMessage | ApiRequestInputInvoiceSlug
-| ApiRequestInputInvoiceGiveaway | ApiRequestInputInvoiceStars;
+| ApiRequestInputInvoiceGiveaway | ApiRequestInputInvoiceStars | ApiRequestInputInvoiceStarsGiveaway;
 
 export interface ApiInvoice {
   mediaType: 'invoice';
@@ -337,7 +371,8 @@ export type ApiGame = {
 export type ApiGiveaway = {
   mediaType: 'giveaway';
   quantity: number;
-  months: number;
+  months?: number;
+  stars?: number;
   untilDate: number;
   isOnlyForNewSubscribers?: true;
   countries?: string[];
@@ -347,7 +382,8 @@ export type ApiGiveaway = {
 
 export type ApiGiveawayResults = {
   mediaType: 'giveawayResults';
-  months: number;
+  months?: number;
+  stars?: number;
   untilDate: number;
   isRefunded?: true;
   isOnlyForNewSubscribers?: true;
@@ -383,9 +419,15 @@ export interface ApiAction {
   | 'joinedChannel'
   | 'chatBoost'
   | 'receipt'
+  | 'giftStars'
+  | 'giftPremium'
+  | 'giftCode'
+  | 'prizeStars'
   | 'other';
   photo?: ApiPhoto;
   amount?: number;
+  stars?: number;
+  transactionId?: string;
   currency?: string;
   giftCryptoInfo?: {
     currency: string;
@@ -726,7 +768,7 @@ interface ApiBaseThreadInfo {
 
 export interface ApiCommentsInfo extends ApiBaseThreadInfo {
   isCommentsInfo: true;
-  threadId?: ThreadId;
+  threadId?: never;
   originChannelId: string;
   originMessageId: number;
 }
@@ -744,9 +786,9 @@ export type ApiThreadInfo = ApiCommentsInfo | ApiMessageThreadInfo;
 export type ApiMessageOutgoingStatus = 'read' | 'succeeded' | 'pending' | 'failed';
 
 export type ApiSponsoredMessage = {
+  chatId: string;
   randomId: string;
   isRecommended?: true;
-  text: ApiFormattedText;
   expiresAt: number;
   sponsorInfo?: string;
   additionalInfo?: string;
@@ -755,6 +797,7 @@ export type ApiSponsoredMessage = {
   title: string;
   url: string;
   photo?: ApiPhoto;
+  content: MediaContent;
   peerColor?: ApiPeerColor;
 };
 

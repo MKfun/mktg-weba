@@ -19,7 +19,7 @@ import useLastCallback from '../../../../hooks/useLastCallback';
 import useOldLang from '../../../../hooks/useOldLang';
 
 import Icon from '../../../common/icons/Icon';
-import Picker from '../../../common/Picker';
+import PeerPicker from '../../../common/pickers/PeerPicker';
 import FloatingActionButton from '../../../ui/FloatingActionButton';
 import Loading from '../../../ui/Loading';
 
@@ -50,7 +50,7 @@ const SettingsFoldersChatFilters: FC<OwnProps & StateProps> = ({
   const { openLimitReachedModal } = getActions();
 
   const { chatFilter } = state;
-  const { selectedChatIds, selectedChatTypes } = selectChatFilters(state, mode, true);
+  const { selectedChatIds, selectedChatTypes } = useMemo(() => selectChatFilters(state, mode, true), [mode, state]);
   const chatTypes = mode === 'included' ? CUSTOM_PEER_INCLUDED_CHAT_TYPES : CUSTOM_PEER_EXCLUDED_CHAT_TYPES;
 
   const [isTouched, setIsTouched] = useState(false);
@@ -128,6 +128,7 @@ const SettingsFoldersChatFilters: FC<OwnProps & StateProps> = ({
         },
       });
     }
+    setIsTouched(true);
   });
 
   useHistoryBack({
@@ -141,7 +142,7 @@ const SettingsFoldersChatFilters: FC<OwnProps & StateProps> = ({
 
   return (
     <div className="Picker settings-folders-chat-list">
-      <Picker
+      <PeerPicker
         categories={shouldHideChatTypes ? undefined : chatTypes}
         itemIds={displayedIds}
         selectedIds={selectedChatIds}
@@ -151,7 +152,10 @@ const SettingsFoldersChatFilters: FC<OwnProps & StateProps> = ({
         categoryPlaceholderKey="FilterChatTypes"
         searchInputId="new-group-picker-search"
         isSearchable
-        isRoundCheckbox
+        withDefaultPadding
+        withPeerTypes
+        allowMultiple
+        itemInputType="checkbox"
         onSelectedIdsChange={handleSelectedIdsChange}
         onSelectedCategoriesChange={handleSelectedChatTypesChange}
         onFilterChange={handleFilterChange}

@@ -66,6 +66,7 @@ export const INITIAL_PERFORMANCE_STATE_MIN: PerformanceType = {
 };
 
 export const INITIAL_GLOBAL_STATE: GlobalState = {
+  isInited: true,
   attachMenu: { bots: {} },
   passcode: {},
   twoFaSettings: {},
@@ -96,6 +97,8 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     byId: {},
     statusesById: {},
     fullInfoById: {},
+    previewMediaByBotId: {},
+    commonChatsById: {},
   },
 
   chats: {
@@ -107,6 +110,12 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     byId: {},
     fullInfoById: {},
     similarChannelsById: {},
+    topicsInfoById: {},
+    loadingParameters: {
+      active: {},
+      archived: {},
+      saved: {},
+    },
   },
 
   messages: {
@@ -207,6 +216,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
   topPeers: {},
 
   topInlineBots: {},
+  topBotApps: {},
 
   activeSessions: {
     byHash: {},
@@ -289,6 +299,9 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     isMinimized: false,
     isHidden: false,
   },
+
+  profilePhotosById: {},
+  monetizationInfo: {},
 };
 
 export const INITIAL_TAB_STATE: TabState = {
@@ -316,7 +329,7 @@ export const INITIAL_TAB_STATE: TabState = {
 
   userSearch: {},
 
-  localTextSearch: {
+  middleSearch: {
     byChatThreadKey: {},
   },
 
@@ -349,7 +362,11 @@ export const INITIAL_TAB_STATE: TabState = {
     isMuted: false,
   },
 
+  isShareMessageModalShown: false,
+
   forwardMessages: {},
+
+  replyingMessage: {},
 
   pollResults: {},
 

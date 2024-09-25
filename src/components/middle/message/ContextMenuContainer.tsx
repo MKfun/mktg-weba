@@ -4,22 +4,23 @@ import React, {
 } from '../../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../../global';
 
+import type {
+  ApiAvailableReaction,
+  ApiChatReactions,
+  ApiMessage,
+  ApiReaction,
+  ApiStickerSet,
+  ApiStickerSetInfo,
+  ApiThreadInfo,
+} from '../../../api/types';
 import type { ActiveDownloads, MessageListType } from '../../../global/types';
 import type { IAlbum, IAnchorPosition, ThreadId } from '../../../types';
-import {
-  type ApiAvailableReaction,
-  type ApiChatReactions,
-  type ApiMessage,
-  type ApiReaction,
-  type ApiStickerSet,
-  type ApiStickerSetInfo,
-  type ApiThreadInfo,
-  MAIN_THREAD_ID,
-} from '../../../api/types';
+import { MAIN_THREAD_ID } from '../../../api/types';
 
 import { PREVIEW_AVATAR_COUNT, SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
 import {
   areReactionsEmpty,
+  getCanPostInChat,
   getIsDownloading,
   getMessageDownloadableMedia,
   getMessageVideo,
@@ -30,10 +31,11 @@ import {
   isMessageLocal,
   isOwnMessage,
   isUserId,
+  isUserRightBanned,
 } from '../../../global/helpers';
 import {
   selectActiveDownloads,
-  selectAllowedMessageActions,
+  selectAllowedMessageActionsSlow,
   selectCanPlayAnimatedEmojis,
   selectCanScheduleUntilOnline,
   selectCanTranslateMessage,
@@ -51,9 +53,10 @@ import {
   selectRequestedChatTranslationLanguage,
   selectRequestedMessageTranslationLanguage,
   selectStickerSet,
+  selectThreadInfo,
+  selectTopic,
   selectUserStatus,
 } from '../../../global/selectors';
-import buildClassName from '../../../util/buildClassName';
 import { copyTextToClipboard } from '../../../util/clipboard';
 import { getSelectionAsFormattedText } from './helpers/getSelectionAsFormattedText';
 import { isSelectionRangeInsideMessage } from './helpers/isSelectionRangeInsideMessage';
@@ -64,7 +67,6 @@ import useOldLang from '../../../hooks/useOldLang';
 import useSchedule from '../../../hooks/useSchedule';
 import useShowTransition from '../../../hooks/useShowTransition';
 
-import DeleteMessageModal from '../../common/DeleteMessageModal';
 import PinMessageModal from '../../common/PinMessageModal.async';
 import ReportModal from '../../common/ReportModal';
 import ConfirmDialog from '../../ui/ConfirmDialog';
@@ -89,8 +91,6 @@ type StateProps = {
   availableReactions?: ApiAvailableReaction[];
   topReactions?: ApiReaction[];
   defaultTagReactions?: ApiReaction[];
-  customEmojiSetsInfo?: ApiStickerSetInfo[];
-  customEmojiSets?: ApiStickerSet[];
   noOptions?: boolean;
   canSendNow?: boolean;
   canReschedule?: boolean;
@@ -99,6 +99,8 @@ type StateProps = {
   canShowReactionsCount?: boolean;
   canBuyPremium?: boolean;
   canShowReactionList?: boolean;
+  customEmojiSetsInfo?: ApiStickerSetInfo[];
+  customEmojiSets?: ApiStickerSet[];
   canUnpin?: boolean;
   canDelete?: boolean;
   canReport?: boolean;
@@ -126,10 +128,12 @@ type StateProps = {
   canShowSeenBy?: boolean;
   enabledReactions?: ApiChatReactions;
   canScheduleUntilOnline?: boolean;
-  maxUniqueReactions?: number;
+  reactionsLimit?: number;
   canPlayAnimatedEmojis?: boolean;
   isReactionPickerOpen?: boolean;
   isInSavedMessages?: boolean;
+  isChannel?: boolean;
+  canReplyInChat?: boolean;
 };
 
 const selection = window.getSelection();
@@ -161,7 +165,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
   canShowReactionList,
   canEdit,
   enabledReactions,
-  maxUniqueReactions,
+  reactionsLimit,
   isPrivate,
   isCurrentUserPremium,
   canForward,
@@ -190,6 +194,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
   isInSavedMessages,
   onClose,
   onCloseAnimationEnd,
+  canReplyInChat,
 }) => {
   const {
     openThread,
@@ -197,6 +202,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
     setEditingId,
     pinMessage,
     openForwardMenu,
+    openReplyMenu,
     faveSticker,
     unfaveSticker,
     toggleMessageSelection,
@@ -222,12 +228,16 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
     openPremiumModal,
     loadOutboxReadDate,
     copyMessageLink,
+    openDeleteMessageModal,
   } = getActions();
 
   const lang = useOldLang();
-  const { transitionClassNames } = useShowTransition(isOpen, onCloseAnimationEnd, undefined, false);
+  const { ref: containerRef } = useShowTransition({
+    isOpen,
+    onCloseAnimationEnd,
+    className: false,
+  });
   const [isMenuOpen, setIsMenuOpen] = useState(true);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isClosePollDialogOpen, openClosePollDialog, closeClosePollDialog] = useFlag();
@@ -333,24 +343,20 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
     isMessageTranslated, message.content.text,
   ]);
 
-  const handleDelete = useLastCallback(() => {
-    setIsMenuOpen(false);
-    setIsDeleteModalOpen(true);
-  });
-
-  const handleReport = useLastCallback(() => {
-    setIsMenuOpen(false);
-    setIsReportModalOpen(true);
-  });
-
   const closeMenu = useLastCallback(() => {
     setIsMenuOpen(false);
     onClose();
   });
 
-  const closeDeleteModal = useLastCallback(() => {
-    setIsDeleteModalOpen(false);
-    onClose();
+  const handleDelete = useLastCallback(() => {
+    setIsMenuOpen(false);
+    closeMenu();
+    openDeleteMessageModal({ isSchedule: messageListType === 'scheduled', album, message });
+  });
+
+  const handleReport = useLastCallback(() => {
+    setIsMenuOpen(false);
+    setIsReportModalOpen(true);
   });
 
   const closeReportModal = useLastCallback(() => {
@@ -364,11 +370,16 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
   });
 
   const handleReply = useLastCallback(() => {
-    updateDraftReplyInfo({
-      replyToMsgId: message.id,
-      quoteText: canQuoteSelection && selectionRange ? getSelectionAsFormattedText(selectionRange) : undefined,
-      replyToPeerId: undefined,
-    });
+    const quoteText = canQuoteSelection && selectionRange ? getSelectionAsFormattedText(selectionRange) : undefined;
+    if (!canReplyInChat) {
+      openReplyMenu({ fromChatId: message.chatId, messageId: message.id, quoteText });
+    } else {
+      updateDraftReplyInfo({
+        replyToMsgId: message.id,
+        quoteText,
+        replyToPeerId: undefined,
+      });
+    }
     closeMenu();
   });
 
@@ -495,7 +506,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
       if (isDownloading) {
         cancelMediaDownload({ media: downloadableMedia });
       } else {
-        downloadMedia({ media: downloadableMedia });
+        downloadMedia({ media: downloadableMedia, originMessage: msg });
       }
     });
     closeMenu();
@@ -560,7 +571,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
   scheduledMaxDate.setFullYear(scheduledMaxDate.getFullYear() + 1);
 
   return (
-    <div className={buildClassName('ContextMenuContainer', transitionClassNames)}>
+    <div ref={containerRef} className="ContextMenuContainer">
       <MessageContextMenu
         isReactionPickerOpen={isReactionPickerOpen}
         availableReactions={availableReactions}
@@ -572,7 +583,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
         canBuyPremium={canBuyPremium}
         isOpen={isMenuOpen}
         enabledReactions={enabledReactions}
-        maxUniqueReactions={maxUniqueReactions}
+        reactionsLimit={reactionsLimit}
         anchor={anchor}
         targetHref={targetHref}
         canShowReactionsCount={canShowReactionsCount}
@@ -639,13 +650,6 @@ const ContextMenuContainer: FC<OwnProps & StateProps> = ({
         onShowOriginal={handleShowOriginal}
         onSelectLanguage={handleSelectLanguage}
       />
-      <DeleteMessageModal
-        isOpen={isDeleteModalOpen}
-        isSchedule={messageListType === 'scheduled'}
-        onClose={closeDeleteModal}
-        album={album}
-        message={message}
-      />
       <ReportModal
         isOpen={isReportModalOpen}
         onClose={closeReportModal}
@@ -677,12 +681,18 @@ export default memo(withGlobal<OwnProps>(
 
     const activeDownloads = selectActiveDownloads(global);
     const chat = selectChat(global, message.chatId);
+    const isPrivate = chat && isUserId(chat.id);
+    const chatFullInfo = !isPrivate ? selectChatFullInfo(global, message.chatId) : undefined;
+
     const {
       seenByExpiresAt, seenByMaxChatMembers, maxUniqueReactions, readDateExpiresAt,
     } = global.appConfig || {};
+
+    const reactionsLimit = chatFullInfo?.reactionsLimit || maxUniqueReactions;
+
     const {
       noOptions,
-      canReply,
+      canReplyGlobally,
       canPin,
       canUnpin,
       canDelete,
@@ -698,20 +708,19 @@ export default memo(withGlobal<OwnProps>(
       canSaveGif,
       canRevote,
       canClosePoll,
-    } = (threadId && selectAllowedMessageActions(global, message, threadId)) || {};
+    } = (threadId && selectAllowedMessageActionsSlow(global, message, threadId)) || {};
 
-    const isPrivate = chat && isUserId(chat.id);
     const userStatus = isPrivate ? selectUserStatus(global, chat.id) : undefined;
     const isOwn = isOwnMessage(message);
     const isMessageUnread = selectIsMessageUnread(global, message);
     const canLoadReadDate = Boolean(
       isPrivate
-        && isOwn
-        && !isMessageUnread
-        && readDateExpiresAt
-        && message.date > Date.now() / 1000 - readDateExpiresAt
-        && !userStatus?.isReadDateRestricted
-        && messageListType !== 'scheduled',
+      && isOwn
+      && !isMessageUnread
+      && readDateExpiresAt
+      && message.date > Date.now() / 1000 - readDateExpiresAt
+      && !userStatus?.isReadDateRestricted
+      && messageListType !== 'scheduled',
     );
     const shouldRenderShowWhen = Boolean(
       canLoadReadDate && isPrivate && selectUserStatus(global, chat.id)?.isReadDateRestrictedByMe,
@@ -719,6 +728,16 @@ export default memo(withGlobal<OwnProps>(
     const isPinned = messageListType === 'pinned';
     const isScheduled = messageListType === 'scheduled';
     const isChannel = chat && isChatChannel(chat);
+
+    const threadInfo = threadId && selectThreadInfo(global, message.chatId, threadId);
+    const isMessageThread = Boolean(threadInfo && !threadInfo?.isCommentsInfo && threadInfo?.fromChannelId);
+    const topic = threadId ? selectTopic(global, message.chatId, threadId) : undefined;
+
+    const canSendText = chat && !isUserRightBanned(chat, 'sendPlain', chatFullInfo);
+
+    const canReplyInChat = chat && threadId ? getCanPostInChat(chat, topic, isMessageThread, chatFullInfo)
+     && canSendText : false;
+
     const isLocal = isMessageLocal(message);
     const hasTtl = hasMessageTtl(message);
     const canShowSeenBy = Boolean(!isLocal
@@ -733,7 +752,6 @@ export default memo(withGlobal<OwnProps>(
       && chat.membersCount <= seenByMaxChatMembers
       && message.date > Date.now() / 1000 - seenByExpiresAt);
     const isAction = isActionMessage(message);
-    const chatFullInfo = !isPrivate ? selectChatFullInfo(global, message.chatId) : undefined;
     const canShowReactionsCount = !isLocal && !isChannel && !isScheduled && !isAction && !isPrivate && message.reactions
       && !areReactionsEmpty(message.reactions) && message.reactions.canSeeList;
     const isProtected = selectIsMessageProtected(global, message);
@@ -762,7 +780,7 @@ export default memo(withGlobal<OwnProps>(
       noOptions,
       canSendNow: isScheduled,
       canReschedule: isScheduled,
-      canReply: !isPinned && !isScheduled && canReply,
+      canReply: !isPinned && !isScheduled && canReplyGlobally,
       canPin: !isScheduled && canPin,
       canUnpin: !isScheduled && canUnpin,
       canDelete,
@@ -783,7 +801,7 @@ export default memo(withGlobal<OwnProps>(
       canLoadReadDate,
       shouldRenderShowWhen,
       enabledReactions: chat?.isForbidden ? undefined : chatFullInfo?.enabledReactions,
-      maxUniqueReactions,
+      reactionsLimit,
       isPrivate,
       isCurrentUserPremium,
       hasFullInfo: Boolean(chatFullInfo),
@@ -801,6 +819,8 @@ export default memo(withGlobal<OwnProps>(
       canPlayAnimatedEmojis: selectCanPlayAnimatedEmojis(global),
       isReactionPickerOpen: selectIsReactionPickerOpen(global),
       isInSavedMessages,
+      isChannel,
+      canReplyInChat,
     };
   },
 )(ContextMenuContainer));

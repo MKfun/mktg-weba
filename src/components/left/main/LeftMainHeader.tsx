@@ -36,7 +36,7 @@ import useOldLang from '../../../hooks/useOldLang';
 import { useFullscreenStatus } from '../../../hooks/window/useFullscreen';
 import useLeftHeaderButtonRtlForumTransition from './hooks/useLeftHeaderButtonRtlForumTransition';
 
-import PickerSelectedItem from '../../common/PickerSelectedItem';
+import PickerSelectedItem from '../../common/pickers/PickerSelectedItem';
 import StoryToggler from '../../story/StoryToggler';
 import Button from '../../ui/Button';
 import DropdownMenu from '../../ui/DropdownMenu';
@@ -146,12 +146,12 @@ const LeftMainHeader: FC<OwnProps & StateProps> = ({
     }
   });
 
-  useHotkeys(canSetPasscode ? {
+  useHotkeys(useMemo(() => (canSetPasscode ? {
     'Ctrl+Shift+L': handleLockScreenHotkey,
     'Alt+Shift+L': handleLockScreenHotkey,
     'Meta+Shift+L': handleLockScreenHotkey,
     ...(IS_APP && { 'Mod+L': handleLockScreenHotkey }),
-  } : undefined);
+  } : undefined), [canSetPasscode]));
 
   const MainButton: FC<{ onTrigger: () => void; isOpen?: boolean }> = useMemo(() => {
     return ({ onTrigger, isOpen }) => (
@@ -222,18 +222,22 @@ const LeftMainHeader: FC<OwnProps & StateProps> = ({
           <PickerSelectedItem
             icon="calendar"
             title={selectedSearchDate}
+            fluid
             canClose
             isMinimized={Boolean(globalSearchChatId)}
-            className="search-date"
+            className="left-search-picker-item search-date"
             onClick={setGlobalSearchDate}
             clickArg={CLEAR_DATE_SEARCH_PARAM}
           />
         )}
         {globalSearchChatId && (
           <PickerSelectedItem
+            className="left-search-picker-item"
             peerId={globalSearchChatId}
             onClick={setGlobalSearchChatId}
+            fluid
             canClose
+            isMinimized
             clickArg={CLEAR_CHAT_SEARCH_PARAM}
           />
         )}
@@ -269,7 +273,7 @@ const LeftMainHeader: FC<OwnProps & StateProps> = ({
         </DropdownMenu>
         <SearchInput
           inputId="telegram-search-input"
-          parentContainerClassName="LeftSearch"
+          resultsItemSelector=".LeftSearch .ListItem-button"
           className={buildClassName(
             (globalSearchChatId || searchDate) ? 'with-picker-item' : undefined,
             shouldHideSearch && 'SearchInput--hidden',
@@ -324,7 +328,7 @@ export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const tabState = selectTabState(global);
     const {
-      query: searchQuery, fetchingStatus, chatId, date,
+      query: searchQuery, fetchingStatus, chatId, minDate,
     } = tabState.globalSearch;
     const {
       connectionState, isSyncing, isFetchingDifference,
@@ -335,7 +339,7 @@ export default memo(withGlobal<OwnProps>(
       searchQuery,
       isLoading: fetchingStatus ? Boolean(fetchingStatus.chats || fetchingStatus.messages) : false,
       globalSearchChatId: chatId,
-      searchDate: date,
+      searchDate: minDate,
       theme: selectTheme(global),
       connectionState,
       isSyncing,

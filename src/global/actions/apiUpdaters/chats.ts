@@ -4,9 +4,8 @@ import { MAIN_THREAD_ID } from '../../../api/types';
 
 import { ARCHIVED_FOLDER_ID, MAX_ACTIVE_PINNED_CHATS } from '../../../config';
 import { buildCollectionByKey, omit } from '../../../util/iteratees';
-import { isLocalMessageId } from '../../../util/messageKey';
+import { isLocalMessageId } from '../../../util/keys/messageKey';
 import { closeMessageNotifications, notifyAboutMessage } from '../../../util/notifications';
-import { buildLocalMessage } from '../../../api/gramjs/apiBuilders/messages';
 import { checkIfHasUnreadReactions, isChatChannel } from '../../helpers';
 import {
   addActionHandler, getGlobal, setGlobal,
@@ -14,8 +13,11 @@ import {
 import {
   addUnreadMentions,
   deleteChatMessages,
+  deletePeerPhoto,
   leaveChat,
   removeUnreadMentions,
+  replacePeerPhotos,
+  replacePinnedTopicIds,
   replaceThreadParam,
   updateChat,
   updateChatFullInfo,
@@ -29,12 +31,12 @@ import { updateTabState } from '../../reducers/tabs';
 import {
   selectChat,
   selectChatFullInfo,
-  selectChatLastMessageId,
   selectChatListType,
   selectChatMessages,
   selectCommonBoxChatId,
   selectCurrentMessageList,
   selectIsChatListed,
+  selectPeer,
   selectTabState,
   selectThreadParam,
   selectTopicFromMessage,
@@ -45,7 +47,8 @@ const TYPING_STATUS_CLEAR_DELAY = 6000; // 6 seconds
 addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
   switch (update['@type']) {
     case 'updateChat': {
-      const { isForum: prevIsForum, lastReadOutboxMessageId } = selectChat(global, update.id) || {};
+      const localChat = selectChat(global, update.id);
+      const { isForum: prevIsForum, lastReadOutboxMessageId } = localChat || {};
 
       if (update.chat.lastReadOutboxMessageId && lastReadOutboxMessageId
         && update.chat.lastReadOutboxMessageId < lastReadOutboxMessageId) {
@@ -55,9 +58,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         };
       }
 
-      const localChat = selectChat(global, update.id);
-
-      global = updateChat(global, update.id, update.chat, update.newProfilePhoto);
+      global = updateChat(global, update.id, update.chat);
 
       if (localChat?.areStoriesHidden !== update.chat.areStoriesHidden) {
         global = updatePeerStoriesHidden(global, update.id, update.chat.areStoriesHidden || false);
@@ -65,8 +66,10 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
 
       setGlobal(global);
 
-      if (!update.noTopChatsRequest && !selectIsChatListed(global, update.id)) {
-        // Chat can appear in dialogs list.
+      const updatedChat = selectChat(global, update.id);
+      if (!update.noTopChatsRequest && updatedChat && !selectIsChatListed(global, update.id)
+          && !updatedChat.isNotJoined) {
+        // Reload top chats to update chat listing
         actions.loadTopChats();
       }
 
@@ -96,37 +99,23 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
     case 'updateChatJoin': {
       const listType = selectChatListType(global, update.id);
       const chat = selectChat(global, update.id);
-      if (chat && isChatChannel(chat)) {
-        actions.loadChannelRecommendations({ chatId: chat.id });
-        const lastMessageId = selectChatLastMessageId(global, chat.id);
-        const localMessage = buildLocalMessage(chat, lastMessageId);
-        localMessage.content.action = {
-          mediaType: 'action',
-          text: 'you joined this channel',
-          translationValues: ['ChannelJoined'],
-          type: 'joinedChannel',
-          targetChatId: chat.id,
-        };
 
-        actions.apiUpdate({
-          '@type': 'newMessage',
-          id: localMessage.id,
-          chatId: chat.id,
-          message: localMessage,
-        });
-      }
-
-      if (!listType) {
-        return undefined;
-      }
-
-      global = updateChatListIds(global, listType, [update.id]);
       global = updateChat(global, update.id, { isNotJoined: false });
       setGlobal(global);
 
       if (chat) {
         actions.requestChatUpdate({ chatId: chat.id });
       }
+
+      actions.loadFullChat({ chatId: update.id, force: true });
+
+      if (!listType) {
+        return undefined;
+      }
+
+      global = getGlobal();
+      global = updateChatListIds(global, listType, [update.id]);
+      setGlobal(global);
 
       return undefined;
     }
@@ -494,9 +483,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
       const chat = global.chats.byId[chatId];
       if (!chat) return undefined;
 
-      global = updateChat(global, chatId, {
-        orderedPinnedTopicIds: order,
-      });
+      global = replacePinnedTopicIds(global, chatId, order);
       setGlobal(global);
 
       return undefined;
@@ -534,6 +521,43 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         isForumAsMessages: isEnabled,
       });
       setGlobal(global);
+      break;
+    }
+
+    case 'updateNewProfilePhoto': {
+      const { peerId, photo } = update;
+
+      global = updateChat(global, peerId, {
+        avatarPhotoId: photo.id,
+      });
+      setGlobal(global);
+
+      actions.loadMoreProfilePhotos({ peerId, shouldInvalidateCache: true });
+
+      break;
+    }
+
+    case 'updateDeleteProfilePhoto': {
+      const { peerId, photoId } = update;
+
+      const peer = selectPeer(global, peerId);
+      if (!peer) {
+        return undefined;
+      }
+
+      if (!photoId || peer.avatarPhotoId === photoId) {
+        global = updateChat(global, peerId, {
+          avatarPhotoId: undefined,
+        });
+        global = replacePeerPhotos(global, peerId, undefined);
+      } else {
+        global = deletePeerPhoto(global, peerId, photoId);
+      }
+      setGlobal(global);
+
+      actions.loadMoreProfilePhotos({ peerId, shouldInvalidateCache: true });
+
+      break;
     }
   }
 

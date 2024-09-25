@@ -3,17 +3,16 @@ import React, { memo } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { ApiMessage } from '../../api/types';
+import type { Signal } from '../../util/signals';
 
-import {
-  getMessageIsSpoiler,
-  getMessageMediaHash, getMessageSingleInlineButton,
-} from '../../global/helpers';
+import { getMessageIsSpoiler, getMessageMediaHash, getMessageSingleInlineButton } from '../../global/helpers';
 import buildClassName from '../../util/buildClassName';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 import { getPictogramDimensions, REM } from '../common/helpers/mediaDimensions';
 import renderText from '../common/helpers/renderText';
 import renderKeyboardButtonText from './composer/helpers/renderKeyboardButtonText';
 
+import useDerivedState from '../../hooks/useDerivedState';
 import { useFastClick } from '../../hooks/useFastClick';
 import useFlag from '../../hooks/useFlag';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -46,13 +45,13 @@ type OwnProps = {
   onUnpinMessage?: (id: number) => void;
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onAllPinnedClick?: () => void;
-  isLoading?: boolean;
+  getLoadingPinnedId: Signal<number | undefined>;
   isFullWidth?: boolean;
 };
 
 const HeaderPinnedMessage: FC<OwnProps> = ({
   message, count, index, customTitle, className, onUnpinMessage, onClick, onAllPinnedClick,
-  isLoading, isFullWidth,
+  getLoadingPinnedId, isFullWidth,
 }) => {
   const { clickBotInlineButton } = getActions();
   const lang = useOldLang();
@@ -60,6 +59,8 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
   const mediaThumbnail = useThumbnail(message);
   const mediaBlobUrl = useMedia(getMessageMediaHash(message, 'pictogram'));
   const isSpoiler = getMessageIsSpoiler(message);
+
+  const isLoading = Boolean(useDerivedState(getLoadingPinnedId));
   const canRenderLoader = useAsyncRendering([isLoading], SHOW_LOADER_DELAY);
   const shouldShowLoader = canRenderLoader && isLoading;
 
@@ -77,7 +78,7 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
 
   const handleInlineButtonClick = useLastCallback(() => {
     if (inlineButton) {
-      clickBotInlineButton({ messageId: message.id, button: inlineButton });
+      clickBotInlineButton({ chatId: message.chatId, messageId: message.id, button: inlineButton });
     }
   });
 
@@ -184,7 +185,6 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
           <Transition activeKey={message.id} name="slideVerticalFade" className={styles.messageTextTransition}>
             <p dir="auto" className={styles.summary}>
               <MessageSummary
-                lang={lang}
                 message={message}
                 noEmoji={Boolean(mediaThumbnail)}
                 emojiSize={EMOJI_SIZE}

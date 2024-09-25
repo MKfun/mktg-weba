@@ -21,7 +21,7 @@ import useOldLang from '../../../hooks/useOldLang';
 
 import AnimatedIconWithPreview from '../../common/AnimatedIconWithPreview';
 import Icon from '../../common/icons/Icon';
-import PickerSelectedItem from '../../common/PickerSelectedItem';
+import PickerSelectedItem from '../../common/pickers/PickerSelectedItem';
 import Button from '../../ui/Button';
 import Modal from '../../ui/Modal';
 
@@ -128,6 +128,7 @@ const CollectibleInfoModal: FC<OwnProps & StateProps> = ({
         className={styles.chip}
         peerId={modal?.peerId}
         forceShowSelf
+        clickArg={modal?.peerId}
         onClick={handleOpenChat}
       />
       <p className={styles.description}>

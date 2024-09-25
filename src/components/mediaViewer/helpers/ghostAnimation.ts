@@ -299,6 +299,11 @@ function getNodes(origin: MediaViewerOrigin, message?: ApiMessage, index?: numbe
       mediaSelector = '.full-media';
       break;
 
+    case MediaViewerOrigin.PreviewMedia:
+      containerSelector = `#preview-media${index}`;
+      mediaSelector = 'img';
+      break;
+
     case MediaViewerOrigin.SharedMedia:
       containerSelector = `#shared-media${getMessageHtmlId(message!.id, index)}`;
       mediaSelector = 'img';
@@ -334,6 +339,11 @@ function getNodes(origin: MediaViewerOrigin, message?: ApiMessage, index?: numbe
       mediaSelector = index === 0 ? `.stars-transaction-media-${index} :is(img, video)` : undefined;
       break;
 
+    case MediaViewerOrigin.SponsoredMessage:
+      containerSelector = '.Transition_slide-active > .MessageList .sponsored-media-preview';
+      mediaSelector = `${MESSAGE_CONTENT_SELECTOR} .full-media,${MESSAGE_CONTENT_SELECTOR} .thumbnail:not(.blurred-bg)`;
+      break;
+
     case MediaViewerOrigin.ScheduledInline:
     case MediaViewerOrigin.Inline:
     default:
@@ -358,6 +368,7 @@ function applyShape(ghost: HTMLDivElement, origin: MediaViewerOrigin) {
     case MediaViewerOrigin.Inline:
     case MediaViewerOrigin.ScheduledInline:
     case MediaViewerOrigin.StarsTransaction:
+    case MediaViewerOrigin.PreviewMedia:
       ghost.classList.add('rounded-corners');
       break;
 

@@ -31,7 +31,9 @@ import {
   selectCurrentMessageList,
   selectIsCurrentUserPremium,
   selectIsTrustedBot,
+  selectSender,
   selectTabState,
+  selectTopic,
 } from '../../selectors';
 
 import { getIsMobile, getIsTablet } from '../../../hooks/useAppLayout';
@@ -433,7 +435,7 @@ addActionHandler('openGame', (global, actions, payload): ActionReturnType => {
   const message = selectChatMessage(global, chatId, messageId);
   if (!message) return;
 
-  const botId = message.viaBotId || message.senderId;
+  const botId = message.viaBotId || selectSender(global, message)?.id;
   if (!botId) return;
 
   if (!selectIsTrustedBot(global, botId)) {
@@ -772,8 +774,9 @@ addActionHandler('updatePageTitle', (global, actions, payload): ActionReturnType
     const currentChat = selectChat(global, chatId);
     if (currentChat) {
       const title = getChatTitle(langProvider.oldTranslate, currentChat, chatId === currentUserId);
-      if (currentChat.isForum && currentChat.topics?.[threadId]) {
-        setPageTitle(`${title} › ${currentChat.topics[threadId].title}`);
+      const topic = selectTopic(global, chatId, threadId);
+      if (currentChat.isForum && topic) {
+        setPageTitle(`${title} › ${topic.title}`);
         return;
       }
 
