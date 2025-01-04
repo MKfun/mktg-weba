@@ -15,6 +15,7 @@ import type {
   ApiBotMenuButton,
   ApiChat,
   ApiChatFullInfo,
+  ApiDraft,
   ApiFormattedText,
   ApiMessage,
   ApiMessageEntity,
@@ -29,15 +30,21 @@ import type {
   ApiWebPage,
 } from '../../api/types';
 import type {
-  ApiDraft, GlobalState, MessageList, MessageListType, TabState,
+  GlobalState, TabState,
 } from '../../global/types';
 import type {
-  IAnchorPosition, InlineBotSettings, ISettings, ThreadId,
+  IAnchorPosition,
+  InlineBotSettings,
+  ISettings,
+  MessageList,
+  MessageListType,
+  ThreadId,
 } from '../../types';
 import { MAIN_THREAD_ID } from '../../api/types';
 
 import {
   BASE_EMOJI_KEYWORD_LANG,
+  DEFAULT_MAX_MESSAGE_LENGTH,
   EDITABLE_INPUT_MODAL_ID,
   HEART_REACTION,
   MAX_UPLOAD_FILEPART_SIZE,
@@ -48,10 +55,10 @@ import {
 } from '../../config';
 import { requestMeasure, requestNextMutation } from '../../lib/fasterdom/fasterdom';
 import {
+  canEditMedia,
   getAllowedAttachmentOptions,
   getReactionKey,
   getStoryKey,
-  hasReplaceableMedia,
   isChatAdmin,
   isChatChannel,
   isChatSuperGroup,
@@ -84,7 +91,6 @@ import {
   selectPerformanceSettingsValue,
   selectRequestedDraft,
   selectRequestedDraftFiles,
-  selectScheduledIds,
   selectTabState,
   selectTheme,
   selectTopicFromMessage,
@@ -265,6 +271,7 @@ type StateProps =
     areEffectsSupported?: boolean;
     canPlayEffect?: boolean;
     shouldPlayEffect?: boolean;
+    maxMessageLength: number;
   };
 
 enum MainButtonState {
@@ -286,7 +293,6 @@ const SCREEN_WIDTH_TO_HIDE_PLACEHOLDER = 600; // px
 
 const MOBILE_KEYBOARD_HIDE_DELAY_MS = 100;
 const SELECT_MODE_TRANSITION_MS = 200;
-const MESSAGE_MAX_LENGTH = 4096;
 const SENDING_ANIMATION_DURATION = 350;
 const MOUNT_ANIMATION_DURATION = 430;
 
@@ -379,6 +385,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   areEffectsSupported,
   canPlayEffect,
   shouldPlayEffect,
+  maxMessageLength,
 }) => {
   const {
     sendMessage,
@@ -433,7 +440,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   const [isInputHasFocus, markInputHasFocus, unmarkInputHasFocus] = useFlag();
   const [isAttachMenuOpen, onAttachMenuOpen, onAttachMenuClose] = useFlag();
 
-  const canMediaBeReplaced = editingMessage && hasReplaceableMedia(editingMessage);
+  const canMediaBeReplaced = editingMessage && canEditMedia(editingMessage);
 
   const { emojiSet, members: groupChatMembers, botCommands: chatBotCommands } = chatFullInfo || {};
   const chatEmojiSetId = emojiSet?.id;
@@ -866,7 +873,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   });
 
   const validateTextLength = useLastCallback((text: string, isAttachmentModal?: boolean) => {
-    const maxLength = isAttachmentModal ? captionLimit : MESSAGE_MAX_LENGTH;
+    const maxLength = isAttachmentModal ? captionLimit : maxMessageLength;
     if (text?.length > maxLength) {
       const extraLength = text.length - maxLength;
       showDialog({
@@ -1654,6 +1661,8 @@ const Composer: FC<OwnProps & StateProps> = ({
         onRemoveSymbol={removeSymbolAttachmentModal}
         onEmojiSelect={insertTextAndUpdateCursorAttachmentModal}
         editingMessage={editingMessage}
+        onSendWhenOnline={handleSendWhenOnline}
+        canScheduleUntilOnline={canScheduleUntilOnline && !isViewOnceEnabled}
       />
       <PollModal
         isOpen={pollModal.isOpen}
@@ -1769,7 +1778,7 @@ const Composer: FC<OwnProps & StateProps> = ({
                   onActivate={handleActivateBotCommandMenu}
                   ariaLabel="Open bot command keyboard"
                 >
-                  <i className="icon icon-bot-commands-filled" />
+                  <Icon name="bot-commands-filled" />
                 </ResponsiveHoverButton>
               )}
               {canShowSendAs && (sendAsUser || sendAsChat) && (
@@ -1864,7 +1873,7 @@ const Composer: FC<OwnProps & StateProps> = ({
                   onClick={handleAllScheduledClick}
                   ariaLabel="Open scheduled messages"
                 >
-                  <i className="icon icon-schedule" />
+                  <Icon name="schedule" />
                 </Button>
               )}
               {Boolean(botKeyboardMessageId) && !activeVoiceRecording && !editingMessage && (
@@ -1875,7 +1884,7 @@ const Composer: FC<OwnProps & StateProps> = ({
                   onActivate={openBotKeyboard}
                   ariaLabel="Open bot command keyboard"
                 >
-                  <i className="icon icon-bot-command" />
+                  <Icon name="bot-command" />
                 </ResponsiveHoverButton>
               )}
             </>
@@ -1890,7 +1899,7 @@ const Composer: FC<OwnProps & StateProps> = ({
               chatId={chatId}
               threadId={threadId}
               editingMessage={editingMessage}
-              hasReplaceableMedia={canMediaBeReplaced}
+              canEditMedia={canMediaBeReplaced}
               isButtonVisible={!activeVoiceRecording}
               canAttachMedia={canAttachMedia}
               canAttachPolls={canAttachPolls}
@@ -1972,7 +1981,7 @@ const Composer: FC<OwnProps & StateProps> = ({
           onClick={stopRecordingVoice}
           ariaLabel="Cancel voice recording"
         >
-          <i className="icon icon-delete" />
+          <Icon name="delete" />
         </Button>
       )}
       {isInStoryViewer && !activeVoiceRecording && (
@@ -1995,14 +2004,7 @@ const Composer: FC<OwnProps & StateProps> = ({
             />
           )}
           {(!sentStoryReaction || isSentStoryReactionHeart) && (
-            <i
-              className={buildClassName(
-                'icon',
-                'icon-heart',
-                isSentStoryReactionHeart && 'story-reaction-heart',
-              )}
-              aria-hidden
-            />
+            <Icon name="heart" className={buildClassName(isSentStoryReactionHeart && 'story-reaction-heart')} />
           )}
         </Button>
       )}
@@ -2025,11 +2027,11 @@ const Composer: FC<OwnProps & StateProps> = ({
           mainButtonState === MainButtonState.Send && canShowCustomSendMenu ? handleContextMenu : undefined
         }
       >
-        <i className="icon icon-send" />
-        <i className="icon icon-microphone-alt" />
-        {onForward && <i className="icon icon-forward" />}
-        {isInMessageList && <i className="icon icon-schedule" />}
-        {isInMessageList && <i className="icon icon-check" />}
+        <Icon name="send" />
+        <Icon name="microphone-alt" />
+        {onForward && <Icon name="forward" />}
+        {isInMessageList && <Icon name="schedule" />}
+        {isInMessageList && <Icon name="check" />}
       </Button>
       {effectEmoji && (
         <span className="effect-icon" onClick={handleRemoveEffect}>
@@ -2081,11 +2083,10 @@ export default memo(withGlobal<OwnProps>(
     const isChatWithBot = Boolean(chatBot);
     const isChatWithSelf = selectIsChatWithSelf(global, chatId);
     const isChatWithUser = isUserId(chatId);
-    const chatBotFullInfo = isChatWithBot ? selectUserFullInfo(global, chatBot.id) : undefined;
+    const userFullInfo = isChatWithUser ? selectUserFullInfo(global, chatId) : undefined;
     const chatFullInfo = !isChatWithUser ? selectChatFullInfo(global, chatId) : undefined;
     const messageWithActualBotKeyboard = (isChatWithBot || !isChatWithUser)
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
-    const scheduledIds = selectScheduledIds(global, chatId, threadId);
     const {
       language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
     } = global.settings.byKey;
@@ -2115,7 +2116,7 @@ export default memo(withGlobal<OwnProps>(
       && messageListType === currentMessageList?.type
       && !isStoryViewerOpen;
     const user = selectUser(global, chatId);
-    const canSendVoiceByPrivacy = (user && !selectUserFullInfo(global, user.id)?.noVoiceMessages) ?? true;
+    const canSendVoiceByPrivacy = (user && !userFullInfo?.noVoiceMessages) ?? true;
     const slowMode = chatFullInfo?.slowMode;
     const isCurrentUserPremium = selectIsCurrentUserPremium(global);
 
@@ -2138,7 +2139,6 @@ export default memo(withGlobal<OwnProps>(
 
     const noWebPage = selectNoWebPage(global, chatId, threadId);
 
-    const isContactRequirePremium = selectUserFullInfo(global, chatId)?.isContactRequirePremium;
     const areEffectsSupported = isChatWithUser && !isChatWithBot
     && !isInScheduledList && !isChatWithSelf && type !== 'story' && chatId !== SERVICE_NOTIFICATIONS_USER_ID;
     const canPlayEffect = selectPerformanceSettingsValue(global, 'stickerEffects');
@@ -2146,6 +2146,8 @@ export default memo(withGlobal<OwnProps>(
     const effectId = areEffectsSupported && draft?.effectId;
     const effect = effectId ? global.availableEffectById[effectId] : undefined;
     const effectReactions = global.reactions.effectReactions;
+
+    const maxMessageLength = global.config?.maxMessageLength || DEFAULT_MAX_MESSAGE_LENGTH;
 
     return {
       availableReactions: global.reactions.availableReactions,
@@ -2163,7 +2165,7 @@ export default memo(withGlobal<OwnProps>(
       isSelectModeActive: selectIsInSelectMode(global),
       withScheduledButton: (
         messageListType === 'thread'
-        && Boolean(scheduledIds?.length)
+        && (userFullInfo || chatFullInfo)?.hasScheduledMessages
       ),
       isInScheduledList,
       botKeyboardMessageId,
@@ -2185,8 +2187,8 @@ export default memo(withGlobal<OwnProps>(
       emojiKeywords: emojiKeywords?.keywords,
       inlineBots: tabState.inlineBots.byUsername,
       isInlineBotLoading: tabState.inlineBots.isLoading,
-      botCommands: chatBotFullInfo ? (chatBotFullInfo.botInfo?.commands || false) : undefined,
-      botMenuButton: chatBotFullInfo?.botInfo?.menuButton,
+      botCommands: userFullInfo ? (userFullInfo.botInfo?.commands || false) : undefined,
+      botMenuButton: userFullInfo?.botInfo?.menuButton,
       sendAsUser,
       sendAsChat,
       sendAsId,
@@ -2216,12 +2218,13 @@ export default memo(withGlobal<OwnProps>(
       canSendQuickReplies,
       noWebPage,
       webPagePreview: selectTabState(global).webPagePreview,
-      isContactRequirePremium,
+      isContactRequirePremium: userFullInfo?.isContactRequirePremium,
       effect,
       effectReactions,
       areEffectsSupported,
       canPlayEffect,
       shouldPlayEffect,
+      maxMessageLength,
     };
   },
 )(Composer));

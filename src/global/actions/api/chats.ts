@@ -4,12 +4,12 @@ import type {
 } from '../../../api/types';
 import type { RequiredGlobalActions } from '../../index';
 import type {
-  ActionReturnType,
-  ChatListType, GlobalState, TabArgs,
+  ActionReturnType, GlobalState, TabArgs,
 } from '../../types';
 import { MAIN_THREAD_ID } from '../../../api/types';
 import {
   ChatCreationProgress,
+  type ChatListType,
   ManagementProgress,
   NewChatMembersProgress,
   SettingsScreens,
@@ -32,7 +32,7 @@ import {
   TOPICS_SLICE_SECOND_LOAD,
 } from '../../../config';
 import { copyTextToClipboard } from '../../../util/clipboard';
-import { formatShareText, parseChooseParameter, processDeepLink } from '../../../util/deeplink';
+import { formatShareText, processDeepLink } from '../../../util/deeplink';
 import { isDeepLink } from '../../../util/deepLinkParser';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { getOrderedIds } from '../../../util/folderManager';
@@ -49,12 +49,12 @@ import {
   isChatChannel,
   isChatSuperGroup,
   isUserBot,
-  toChannelId,
 } from '../../helpers';
 import {
   addActionHandler, getGlobal, setGlobal,
 } from '../../index';
 import {
+  addChatListIds,
   addChatMembers,
   addChats,
   addMessages,
@@ -76,7 +76,6 @@ import {
   updateChat,
   updateChatFullInfo,
   updateChatLastMessageId,
-  updateChatListIds,
   updateChatListSecondaryInfo,
   updateChats,
   updateChatsLastMessageId,
@@ -600,7 +599,7 @@ addActionHandler('requestSavedDialogUpdate', async (global, actions, payload): P
 
   if (result.messages.length) {
     global = updateChatLastMessageId(global, chatId, result.messages[0].id, 'saved');
-    global = updateChatListIds(global, 'saved', [chatId]);
+    global = addChatListIds(global, 'saved', [chatId]);
 
     setGlobal(global);
   } else {
@@ -1270,6 +1269,7 @@ addActionHandler('openChatByPhoneNumber', async (global, actions, payload): Prom
 addActionHandler('openTelegramLink', async (global, actions, payload): Promise<void> => {
   const {
     url,
+    shouldIgnoreCache,
     tabId = getCurrentTabId(),
   } = payload;
 
@@ -1279,13 +1279,10 @@ addActionHandler('openTelegramLink', async (global, actions, payload): Promise<v
     openStickerSet,
     openChatWithDraft,
     joinVoiceChatByLink,
-    focusMessage,
     openInvoice,
-    processAttachBotParameters,
     checkChatlistInvite,
     openChatByUsername: openChatByUsernameAction,
     openStoryViewerByUsername,
-    processBoostParameters,
     checkGiftCode,
   } = actions;
 
@@ -1316,11 +1313,7 @@ addActionHandler('openTelegramLink', async (global, actions, payload): Promise<v
     hash = part2;
   }
 
-  const hasStartAttach = params.hasOwnProperty('startattach');
-  const hasStartApp = params.hasOwnProperty('startapp');
-  const choose = parseChooseParameter(params.choose);
   const storyId = part2 === 's' && (Number(part3) || undefined);
-  const hasBoost = params.hasOwnProperty('boost');
 
   if (part1.match(/^\+([0-9]+)(\?|$)/)) {
     openChatByPhoneNumber({
@@ -1357,6 +1350,7 @@ addActionHandler('openTelegramLink', async (global, actions, payload): Promise<v
       stickerSetInfo: {
         shortName: part2,
       },
+      shouldIgnoreCache,
       tabId,
     });
     return;
@@ -1394,30 +1388,6 @@ addActionHandler('openTelegramLink', async (global, actions, payload): Promise<v
       inviteHash: params.voicechat || params.livestream,
       tabId,
     });
-  } else if (part1 === 'boost') {
-    const username = part2;
-    const id = params.c;
-
-    const isPrivate = !username && Boolean(id);
-
-    processBoostParameters({
-      usernameOrId: username || id,
-      isPrivate,
-      tabId,
-    });
-  } else if (hasBoost) {
-    const isPrivate = part1 === 'c' && Boolean(chatOrChannelPostId);
-    processBoostParameters({
-      usernameOrId: chatOrChannelPostId || part1,
-      isPrivate,
-      tabId,
-    });
-  } else if (part1 === 'c' && chatOrChannelPostId && messageId) {
-    focusMessage({
-      chatId: toChannelId(chatOrChannelPostId),
-      messageId,
-      tabId,
-    });
   } else if (part1.startsWith('$')) {
     openInvoice({
       type: 'slug',
@@ -1430,13 +1400,6 @@ addActionHandler('openTelegramLink', async (global, actions, payload): Promise<v
       slug: part2,
       tabId,
     });
-  } else if ((hasStartAttach && choose) || (!part2 && hasStartApp)) {
-    processAttachBotParameters({
-      username: part1,
-      filter: choose,
-      startParam: params.startattach || params.startapp,
-      tabId,
-    });
   } else if (shouldTryOpenChat) {
     openChatByUsernameAction({
       username: part1,
@@ -1447,6 +1410,7 @@ addActionHandler('openTelegramLink', async (global, actions, payload): Promise<v
       startAttach: params.startattach,
       attach: params.attach,
       startApp: params.startapp,
+      mode: params.mode,
       originalParts: [part1, part2, part3],
       tabId,
     });
@@ -1463,16 +1427,15 @@ addActionHandler('processBoostParameters', async (global, actions, payload): Pro
   let chat: ApiChat | undefined;
 
   if (isPrivate) {
-    const chatId = toChannelId(usernameOrId);
-    chat = selectChat(global, chatId);
+    chat = selectChat(global, usernameOrId);
     if (!chat) {
-      actions.showNotification({ message: 'Chat does not exist', tabId });
+      actions.showNotification({ message: { key: 'PrivateChannelInaccessible' }, tabId });
       return;
     }
   } else {
     chat = await fetchChatByUsername(global, usernameOrId);
     if (!chat) {
-      actions.showNotification({ message: 'User does not exist', tabId });
+      actions.showNotification({ message: { key: 'NoUsernameFound' }, tabId });
       return;
     }
   }
@@ -1500,7 +1463,8 @@ addActionHandler('acceptChatInvite', async (global, actions, payload): Promise<v
 
 addActionHandler('openChatByUsername', async (global, actions, payload): Promise<void> => {
   const {
-    username, messageId, commentId, startParam, startAttach, attach, threadId, originalParts, startApp, text,
+    username, messageId, commentId, startParam, startAttach, attach, threadId, originalParts, startApp, mode,
+    text, onChatChanged, choose, ref,
     tabId = getCurrentTabId(),
   } = payload;
 
@@ -1509,13 +1473,24 @@ addActionHandler('openChatByUsername', async (global, actions, payload): Promise
   const isWebApp = webAppName && !Number(webAppName) && !originalParts?.[2];
 
   if (!commentId) {
-    if (startAttach === undefined && messageId && !startParam
+    if (startAttach === undefined && messageId && !startParam && !ref
       && chat?.usernames?.some((c) => c.username === username)) {
       actions.focusMessage({
         chatId: chat.id, threadId, messageId, tabId,
       });
       return;
     }
+
+    if (startAttach !== undefined && choose) {
+      actions.processAttachBotParameters({
+        username,
+        filter: choose,
+        startParam: startAttach || startApp,
+        tabId,
+      });
+      return;
+    }
+
     if (startApp !== undefined && !webAppName) {
       const theme = extractCurrentThemeParams();
       const chatByUsername = await fetchChatByUsername(global, username);
@@ -1527,6 +1502,7 @@ addActionHandler('openChatByUsername', async (global, actions, payload): Promise
         peerId: chat.id,
         theme,
         tabId,
+        mode,
       });
       return;
     }
@@ -1537,11 +1513,16 @@ addActionHandler('openChatByUsername', async (global, actions, payload): Promise
           threadId,
           channelPostId: messageId,
           startParam,
+          ref,
           startAttach,
           attach,
           text,
         }, tabId,
       );
+      if (onChatChanged) {
+        // @ts-ignore
+        actions[onChatChanged.action](onChatChanged.payload);
+      }
       return;
     }
   }
@@ -1572,6 +1553,7 @@ addActionHandler('openChatByUsername', async (global, actions, payload): Promise
       botId: chatByUsername.id,
       tabId,
       startApp,
+      mode,
       theme,
     });
     return;
@@ -1586,6 +1568,10 @@ addActionHandler('openChatByUsername', async (global, actions, payload): Promise
     tabId,
     focusMessageId: commentId,
   });
+  if (onChatChanged) {
+    // @ts-ignore
+    actions[onChatChanged.action](onChatChanged.payload);
+  }
 });
 
 addActionHandler('togglePreHistoryHidden', async (global, actions, payload): Promise<void> => {
@@ -2733,7 +2719,7 @@ async function loadChats(
   const offsetDate = params.nextOffsetDate;
   const offsetId = params.nextOffsetId;
 
-  const isFirstBatch = !offsetPeer && !offsetDate && !offsetId;
+  const isFirstBatch = !shouldIgnorePagination && !offsetPeer && !offsetDate && !offsetId;
 
   const result = listType === 'saved' ? await callApi('fetchSavedChats', {
     limit: CHAT_LIST_LOAD_SLICE,
@@ -2768,7 +2754,7 @@ async function loadChats(
     global = replaceChatListIds(global, listType, chatIds);
     global = replaceUserStatuses(global, result.userStatusesById);
   } else {
-    global = updateChatListIds(global, listType, chatIds);
+    global = addChatListIds(global, listType, chatIds);
     global = addUserStatuses(global, result.userStatusesById);
   }
 
@@ -2898,14 +2884,15 @@ export async function migrateChat<T extends GlobalState>(
 export async function fetchChatByUsername<T extends GlobalState>(
   global: T,
   username: string,
+  referrer?: string,
 ) {
   global = getGlobal();
-  const localChat = selectChatByUsername(global, username);
+  const localChat = !referrer ? selectChatByUsername(global, username) : undefined;
   if (localChat && !localChat.isMin) {
     return localChat;
   }
 
-  const { chat, user } = await callApi('getChatByUsername', username) || {};
+  const { chat, user } = await callApi('getChatByUsername', username, referrer) || {};
   if (!chat) {
     return undefined;
   }
@@ -2998,6 +2985,7 @@ async function openChatByUsername<T extends GlobalState>(
     threadId?: ThreadId;
     channelPostId?: number;
     startParam?: string;
+    ref?: string;
     startAttach?: string;
     attach?: string;
     text?: string;
@@ -3005,7 +2993,7 @@ async function openChatByUsername<T extends GlobalState>(
   ...[tabId = getCurrentTabId()]: TabArgs<T>
 ) {
   const {
-    username, threadId, channelPostId, startParam, startAttach, attach, text,
+    username, threadId, channelPostId, startParam, ref, startAttach, attach, text,
   } = params;
   global = getGlobal();
   const currentChat = selectCurrentChat(global, tabId);
@@ -3033,7 +3021,16 @@ async function openChatByUsername<T extends GlobalState>(
     actions.openChat({ id: TMP_CHAT_ID, tabId });
   }
 
-  const chat = await fetchChatByUsername(global, username);
+  const starRefStartPrefixes = global.appConfig?.starRefStartPrefixes;
+  let referrer = ref;
+  if (startParam && starRefStartPrefixes?.length) {
+    const prefix = starRefStartPrefixes.find((p) => startParam.startsWith(p));
+    if (prefix) {
+      referrer = startParam.slice(prefix.length);
+    }
+  }
+
+  const chat = await fetchChatByUsername(global, username, referrer);
   if (!chat) {
     if (!isCurrentChat) {
       actions.openPreviousChat({ tabId });
@@ -3051,7 +3048,7 @@ async function openChatByUsername<T extends GlobalState>(
     actions.openThread({ chatId: chat.id, threadId: threadId ?? MAIN_THREAD_ID, tabId });
   }
 
-  if (startParam) {
+  if (startParam && !referrer) {
     actions.startBot({ botId: chat.id, param: startParam });
   }
 

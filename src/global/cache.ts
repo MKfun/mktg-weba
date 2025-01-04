@@ -3,8 +3,8 @@ import { getIsHeavyAnimating, onFullyIdle } from '../lib/teact/teact';
 import { addCallback, removeCallback } from '../lib/teact/teactn';
 
 import type { ApiAvailableReaction, ApiMessage } from '../api/types';
-import type { ThreadId } from '../types';
-import type { ActionReturnType, GlobalState, MessageList } from './types';
+import type { MessageList, ThreadId } from '../types';
+import type { ActionReturnType, GlobalState } from './types';
 import { MAIN_THREAD_ID } from '../api/types';
 
 import {
@@ -446,10 +446,10 @@ function reduceChats<T extends GlobalState>(global: T): GlobalState['chats'] {
     ...currentUserId ? [currentUserId] : [],
     ...currentChatIds,
     ...messagesChatIds,
+    ...global.recentlyFoundChatIds || [],
     ...getOrderedIds(ARCHIVED_FOLDER_ID)?.slice(0, GLOBAL_STATE_CACHE_ARCHIVED_CHAT_LIST_LIMIT) || [],
     ...getOrderedIds(ALL_FOLDER_ID) || [],
     ...getOrderedIds(SAVED_FOLDER_ID) || [],
-    ...global.recentlyFoundChatIds || [],
     ...Object.keys(byId),
   ]).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT);
 

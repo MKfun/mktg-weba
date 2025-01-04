@@ -23,10 +23,12 @@ import type {
   ApiTopic,
 } from '../../types';
 
-import { omitUndefined, pick, pickTruthy } from '../../../util/iteratees';
+import { pick, pickTruthy } from '../../../util/iteratees';
 import { getServerTime, getServerTimeOffset } from '../../../util/serverTime';
 import { addPhotoToLocalDb, addUserToLocalDb, serializeBytes } from '../helpers';
-import { buildApiPhoto, buildApiUsernames, buildAvatarPhotoId } from './common';
+import {
+  buildApiFormattedText, buildApiPhoto, buildApiUsernames, buildAvatarPhotoId,
+} from './common';
 import { omitVirtualClassFields } from './helpers';
 import {
   buildApiEmojiStatus,
@@ -71,7 +73,7 @@ function buildApiChatFieldsFromPeerEntity(
   const areProfilesShown = Boolean('signatureProfiles' in peerEntity && peerEntity.signatureProfiles);
   const subscriptionUntil = 'subscriptionUntilDate' in peerEntity ? peerEntity.subscriptionUntilDate : undefined;
 
-  return omitUndefined<PeerEntityApiChatFields>({
+  return {
     isMin,
     hasPrivateLink,
     areSignaturesShown,
@@ -104,7 +106,7 @@ function buildApiChatFieldsFromPeerEntity(
     emojiStatus,
     boostLevel,
     subscriptionUntil,
-  });
+  };
 }
 
 export function buildApiChatFromDialog(
@@ -412,25 +414,29 @@ export function buildApiChatFolder(filter: GramJs.DialogFilter | GramJs.DialogFi
   if (filter instanceof GramJs.DialogFilterChatlist) {
     return {
       ...pickTruthy(filter, [
-        'id', 'title', 'emoticon',
+        'id', 'emoticon',
       ]),
       excludedChatIds: [],
       includedChatIds: filter.includePeers.map(getApiChatIdFromMtpPeer).filter(Boolean),
       pinnedChatIds: filter.pinnedPeers.map(getApiChatIdFromMtpPeer).filter(Boolean),
       hasMyInvites: filter.hasMyInvites,
       isChatList: true,
+      noTitleAnimations: filter.titleNoanimate,
+      title: buildApiFormattedText(filter.title),
     };
   }
 
   return {
     ...pickTruthy(filter, [
-      'id', 'title', 'emoticon', 'contacts', 'nonContacts', 'groups', 'bots',
+      'id', 'emoticon', 'contacts', 'nonContacts', 'groups', 'bots',
       'excludeMuted', 'excludeRead', 'excludeArchived',
     ]),
     channels: filter.broadcasts,
     pinnedChatIds: filter.pinnedPeers.map(getApiChatIdFromMtpPeer).filter(Boolean),
     includedChatIds: filter.includePeers.map(getApiChatIdFromMtpPeer).filter(Boolean),
     excludedChatIds: filter.excludePeers.map(getApiChatIdFromMtpPeer).filter(Boolean),
+    title: buildApiFormattedText(filter.title),
+    noTitleAnimations: filter.titleNoanimate,
   };
 }
 
@@ -601,7 +607,7 @@ export function buildApiChatlistInvite(
   if (invite instanceof GramJs.chatlists.ChatlistInvite) {
     return {
       slug,
-      title: invite.title,
+      title: invite.title.text,
       emoticon: invite.emoticon,
       peerIds: invite.peers.map(getApiChatIdFromMtpPeer).filter(Boolean),
     };

@@ -1,7 +1,5 @@
 import type { ApiChatType, ApiPhoto } from '../../api/types';
-import type {
-  WebApp,
-} from '../types';
+import type { WebApp } from '../../types/webapp';
 
 import { REPLIES_USER_ID, VERIFICATION_CODES_USER_ID } from '../../config';
 
@@ -20,7 +18,7 @@ export function convertToApiChatType(type: string): ApiChatType | undefined {
 export function getWebAppKey(webApp: Partial<WebApp>) {
   if (webApp.requestUrl) return webApp.requestUrl;
   if (webApp.appName) return `${webApp.botId}?appName=${webApp.appName}`;
-  return webApp.botId;
+  return webApp.botId!;
 }
 
 export function isSystemBot(botId: string) {

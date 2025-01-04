@@ -19,6 +19,7 @@ import {
   buildApiPremiumPromo,
   buildApiReceipt,
   buildApiStarGift,
+  buildApiStarsAmount,
   buildApiStarsGiftOptions,
   buildApiStarsGiveawayOptions,
   buildApiStarsSubscription,
@@ -429,10 +430,11 @@ export async function fetchStarGifts() {
     return undefined;
   }
 
-  const gifts = result.gifts.map(buildApiStarGift);
+  const gifts = result.gifts.map(buildApiStarGift).filter(Boolean);
   const stickers : Record<string, ApiSticker> = {};
 
   result.gifts.forEach((gift) => {
+    if (!(gift instanceof GramJs.StarGift)) return;
     if (gift.sticker instanceof GramJs.Document) {
       localDb.documents[String(gift.sticker.id)] = gift.sticker;
     }
@@ -465,16 +467,17 @@ export async function fetchUserStarGifts({
     return undefined;
   }
 
-  const gifts = result.gifts.map(buildApiUserStarGift);
+  const supportedGifts = result.gifts.filter(
+    ((gift) => gift instanceof GramJs.StarGift),
+  ).map(buildApiUserStarGift);
 
   return {
-    gifts,
+    gifts: supportedGifts,
     nextOffset: result.nextOffset,
   };
 }
 
 export function saveStarGift({
-  user,
   messageId,
   shouldUnsave,
 }: {
@@ -483,21 +486,18 @@ export function saveStarGift({
   shouldUnsave?: boolean;
 }) {
   return invokeRequest(new GramJs.payments.SaveStarGift({
-    userId: buildInputPeer(user.id, user.accessHash),
     msgId: messageId,
     unsave: shouldUnsave || undefined,
   }));
 }
 
 export function convertStarGift({
-  user,
   messageId,
 }: {
   user: ApiUser;
   messageId: number;
 }) {
   return invokeRequest(new GramJs.payments.ConvertStarGift({
-    userId: buildInputPeer(user.id, user.accessHash),
     msgId: messageId,
   }));
 }
@@ -528,13 +528,16 @@ export async function fetchStarsStatus() {
   if (!result) {
     return undefined;
   }
+  const supportedHistory = result.history?.filter(
+    (transaction) => !(transaction.stargift instanceof GramJs.StarGiftUnique),
+  );
 
   return {
     nextHistoryOffset: result.nextOffset,
-    history: result.history?.map(buildApiStarsTransaction),
+    history: supportedHistory?.map(buildApiStarsTransaction),
     nextSubscriptionOffset: result.subscriptionsNextOffset,
     subscriptions: result.subscriptions?.map(buildApiStarsSubscription),
-    balance: result.balance.toJSNumber(),
+    balance: buildApiStarsAmount(result.balance),
   };
 }
 
@@ -561,10 +564,14 @@ export async function fetchStarsTransactions({
     return undefined;
   }
 
+  const supportedHistory = result.history?.filter(
+    (transaction) => !(transaction.stargift instanceof GramJs.StarGiftUnique),
+  );
+
   return {
     nextOffset: result.nextOffset,
-    history: result.history?.map(buildApiStarsTransaction),
-    balance: result.balance.toJSNumber(),
+    history: supportedHistory?.map(buildApiStarsTransaction),
+    balance: buildApiStarsAmount(result.balance),
   };
 }
 
@@ -582,12 +589,15 @@ export async function fetchStarsTransactionById({
     })],
   }));
 
-  if (!result?.history?.[0]) {
+  const supportedHistory = result?.history?.filter(
+    (transaction) => !(transaction.stargift instanceof GramJs.StarGiftUnique),
+  );
+  if (!supportedHistory?.[0]) {
     return undefined;
   }
 
   return {
-    transaction: buildApiStarsTransaction(result.history[0]),
+    transaction: buildApiStarsTransaction(supportedHistory[0]),
   };
 }
 
@@ -610,7 +620,7 @@ export async function fetchStarsSubscriptions({
   return {
     nextOffset: result.subscriptionsNextOffset,
     subscriptions: result.subscriptions.map(buildApiStarsSubscription),
-    balance: result.balance.toJSNumber(),
+    balance: buildApiStarsAmount(result.balance),
   };
 }
 

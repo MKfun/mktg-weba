@@ -51,7 +51,7 @@ import useOldLang from '../../../hooks/useOldLang';
 
 import Avatar from '../../common/Avatar';
 import Icon from '../../common/icons/Icon';
-import PickerSelectedItem from '../../common/pickers/PickerSelectedItem';
+import PeerChip from '../../common/PeerChip';
 import Button from '../../ui/Button';
 import InfiniteScroll from '../../ui/InfiniteScroll';
 import SearchInput from '../../ui/SearchInput';
@@ -129,6 +129,7 @@ const MiddleSearch: FC<StateProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
+  const shouldCancelSearchRef = useRef(false);
 
   const { isMobile } = useAppLayout();
   const oldLang = useOldLang();
@@ -215,18 +216,10 @@ const MiddleSearch: FC<StateProps> = ({
     };
   }, []);
 
-  // Focus message
+  // Reset focus on query result
   useEffect(() => {
-    if (foundIds?.length) {
-      if (searchType === 'chat') {
-        const [chatId, messageId] = parseSearchResultKey(foundIds[0]);
-        focusMessage({ chatId, messageId, threadId });
-      }
-      setFocusedIndex(0);
-    } else {
-      setFocusedIndex(-1);
-    }
-  }, [searchType, focusMessage, foundIds, threadId]);
+    setFocusedIndex(-1);
+  }, [lastSearchQuery]);
 
   // Disable native up/down buttons on iOS
   useLayoutEffect(() => {
@@ -313,10 +306,15 @@ const MiddleSearch: FC<StateProps> = ({
       return;
     }
 
-    runDebouncedForSearch(() => performMiddleSearch({ chatId, threadId, query }));
+    runDebouncedForSearch(() => {
+      if (shouldCancelSearchRef.current) return;
+      performMiddleSearch({ chatId, threadId, query });
+    });
   });
 
   const handleQueryChange = useLastCallback((newQuery: string) => {
+    shouldCancelSearchRef.current = false;
+
     if (newQuery.startsWith('#') && !isHashtagQuery) {
       updateMiddleSearch({ chatId: chat!.id, threadId, update: { isHashtag: true } });
       setQuery(newQuery.slice(1));
@@ -329,6 +327,7 @@ const MiddleSearch: FC<StateProps> = ({
     if (!newQuery) {
       setIsLoading(false);
       resetMiddleSearch();
+      shouldCancelSearchRef.current = true;
     }
   });
 
@@ -520,7 +519,7 @@ const MiddleSearch: FC<StateProps> = ({
     switch (type) {
       case 'chat':
         return (
-          <PickerSelectedItem
+          <PeerChip
             className={buildClassName(styles.searchType, isSelected && styles.selectedType)}
             fluid
             peerId={chat?.id}
@@ -531,7 +530,7 @@ const MiddleSearch: FC<StateProps> = ({
         );
       case 'myChats':
         return (
-          <PickerSelectedItem
+          <PeerChip
             className={buildClassName(styles.searchType, isSelected && styles.selectedType)}
             fluid
             peerId={currentUserId}
@@ -543,7 +542,7 @@ const MiddleSearch: FC<StateProps> = ({
         );
       case 'channels':
         return (
-          <PickerSelectedItem
+          <PeerChip
             className={buildClassName(styles.searchType, isSelected && styles.selectedType)}
             fluid
             customPeer={CHANNELS_PEER}
@@ -725,7 +724,7 @@ const MiddleSearch: FC<StateProps> = ({
           <div className={styles.counter}>
             {hasQueryData && (
               foundIds?.length ? (
-                oldLang('Of', [focusedIndex + 1, totalCount])
+                oldLang('Of', [Math.max(focusedIndex + 1, 1), totalCount])
               ) : foundIds && !foundIds.length && (
                 oldLang('NoResult')
               )

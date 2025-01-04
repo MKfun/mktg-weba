@@ -7,8 +7,8 @@ import { getActions, withGlobal } from '../../../global';
 import type {
   ApiAttachment, ApiChatMember, ApiMessage, ApiSticker,
 } from '../../../api/types';
-import type { GlobalState, MessageListType } from '../../../global/types';
-import type { ThreadId } from '../../../types';
+import type { GlobalState } from '../../../global/types';
+import type { MessageListType, ThreadId } from '../../../types';
 import type { Signal } from '../../../util/signals';
 
 import {
@@ -85,6 +85,8 @@ export type OwnProps = {
   onCustomEmojiSelect: (emoji: ApiSticker) => void;
   onRemoveSymbol: VoidFunction;
   onEmojiSelect: (emoji: string) => void;
+  canScheduleUntilOnline?: boolean;
+  onSendWhenOnline?: NoneToVoidFunction;
 };
 
 type StateProps = {
@@ -140,6 +142,8 @@ const AttachmentModal: FC<OwnProps & StateProps> = ({
   onCustomEmojiSelect,
   onRemoveSymbol,
   onEmojiSelect,
+  canScheduleUntilOnline,
+  onSendWhenOnline,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -706,6 +710,8 @@ const AttachmentModal: FC<OwnProps & StateProps> = ({
                   onClose={handleContextMenuClose}
                   onCloseAnimationEnd={handleContextMenuHide}
                   isSavedMessages={isChatWithSelf}
+                  onSendWhenOnline={onSendWhenOnline}
+                  canScheduleUntilOnline={canScheduleUntilOnline}
                 />
               )}
             </div>

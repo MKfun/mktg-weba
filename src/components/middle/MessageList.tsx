@@ -8,10 +8,9 @@ import { getActions, getGlobal, withGlobal } from '../../global';
 import type {
   ApiChatFullInfo, ApiMessage, ApiRestrictionReason, ApiTopic,
 } from '../../api/types';
-import type { MessageListType } from '../../global/types';
 import type { OnIntersectPinnedMessage } from './hooks/usePinnedMessage';
 import { MAIN_THREAD_ID } from '../../api/types';
-import { LoadMoreDirection, type ThreadId } from '../../types';
+import { LoadMoreDirection, type MessageListType, type ThreadId } from '../../types';
 
 import {
   ANIMATION_END_DELAY,
@@ -57,6 +56,7 @@ import { orderBy } from '../../util/iteratees';
 import { isLocalMessageId } from '../../util/keys/messageKey';
 import resetScroll from '../../util/resetScroll';
 import { debounce, onTickEnd } from '../../util/schedulers';
+import { getOffsetToContainer } from '../../util/scroll';
 import { groupMessages } from './helpers/groupMessages';
 import { preventMessageInputBlur } from './helpers/preventMessageInputBlur';
 
@@ -89,7 +89,6 @@ type OwnProps = {
   isReady: boolean;
   onScrollDownToggle: BooleanToVoidFunction;
   onNotchToggle: BooleanToVoidFunction;
-  hasTools?: boolean;
   withBottomShift?: boolean;
   withDefaultBg: boolean;
   onIntersectPinnedMessage: OnIntersectPinnedMessage;
@@ -133,7 +132,6 @@ const MESSAGE_FACT_CHECK_UPDATE_INTERVAL = 5 * 1000;
 const MESSAGE_STORY_POLLING_INTERVAL = 5 * 60 * 1000;
 const BOTTOM_THRESHOLD = 50;
 const UNREAD_DIVIDER_TOP = 10;
-const UNREAD_DIVIDER_TOP_WITH_TOOLS = 60;
 const SCROLL_DEBOUNCE = 200;
 const MESSAGE_ANIMATION_DURATION = 500;
 const BOTTOM_FOCUS_MARGIN = 20;
@@ -146,7 +144,6 @@ const MessageList: FC<OwnProps & StateProps> = ({
   chatId,
   threadId,
   type,
-  hasTools,
   isChatLoaded,
   isForum,
   isChannelChat,
@@ -230,10 +227,11 @@ const MessageList: FC<OwnProps & StateProps> = ({
   }, [firstUnreadId]);
 
   useEffect(() => {
-    if (areAdsEnabled && isChannelChat && isSynced && isReady) {
-      loadSponsoredMessages({ chatId });
+    const canHaveAds = isChannelChat || isBot;
+    if (areAdsEnabled && canHaveAds && isSynced && isReady) {
+      loadSponsoredMessages({ peerId: chatId });
     }
-  }, [chatId, isSynced, isReady, isChannelChat, areAdsEnabled]);
+  }, [chatId, isSynced, isReady, isChannelChat, isBot, areAdsEnabled]);
 
   // Updated only once when messages are loaded (as we want the unread divider to keep its position)
   useSyncEffect(() => {
@@ -405,7 +403,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
     }
 
     if (!memoFocusingIdRef.current) {
-      updateStickyDates(container, hasTools);
+      updateStickyDates(container);
     }
 
     runDebouncedForScroll(() => {
@@ -474,7 +472,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
   useSyncEffect(
     () => forceMeasure(() => rememberScrollPositionRef.current()),
     // This will run before modifying content and should match deps for `useLayoutEffectWithPrevDeps` below
-    [messageIds, isViewportNewest, hasTools, rememberScrollPositionRef],
+    [messageIds, isViewportNewest, rememberScrollPositionRef],
   );
   useEffect(
     () => rememberScrollPositionRef.current(),
@@ -558,16 +556,13 @@ const MessageList: FC<OwnProps & StateProps> = ({
         // Break out of `forceLayout`
         requestMeasure(() => {
           const shouldScrollToBottom = !isBackgroundModeActive() || !firstUnreadElement;
-
-          animateScroll(
+          animateScroll({
             container,
-            shouldScrollToBottom ? lastItemElement! : firstUnreadElement!,
-            shouldScrollToBottom ? 'end' : 'start',
-            BOTTOM_FOCUS_MARGIN,
-            undefined,
-            undefined,
-            noMessageSendingAnimation ? 0 : undefined,
-          );
+            element: shouldScrollToBottom ? lastItemElement! : firstUnreadElement!,
+            position: shouldScrollToBottom ? 'end' : 'start',
+            margin: BOTTOM_FOCUS_MARGIN,
+            forceDuration: noMessageSendingAnimation ? 0 : undefined,
+          });
         });
       }
 
@@ -591,7 +586,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
         newScrollTop = scrollTop + (newAnchorTop - (anchorTopRef.current || 0));
       } else if (unreadDivider) {
         newScrollTop = Math.min(
-          unreadDivider.offsetTop - (hasTools ? UNREAD_DIVIDER_TOP_WITH_TOOLS : UNREAD_DIVIDER_TOP),
+          getOffsetToContainer(unreadDivider, container).top - UNREAD_DIVIDER_TOP,
           scrollHeight - scrollOffset,
         );
       } else {
@@ -619,7 +614,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
       };
     });
     // This should match deps for `useSyncEffect` above
-  }, [messageIds, isViewportNewest, hasTools, getContainerHeight, prevContainerHeightRef, noMessageSendingAnimation]);
+  }, [messageIds, isViewportNewest, getContainerHeight, prevContainerHeightRef, noMessageSendingAnimation]);
 
   useEffectWithPrevDeps(([prevIsSelectModeActive]) => {
     if (prevIsSelectModeActive !== undefined) {
@@ -698,7 +693,7 @@ const MessageList: FC<OwnProps & StateProps> = ({
         />
       ) : hasMessages ? (
         <MessageListContent
-          areAdsEnabled={areAdsEnabled}
+          canShowAds={areAdsEnabled && isChannelChat}
           chatId={chatId}
           isComments={isComments}
           isChannelChat={isChannelChat}

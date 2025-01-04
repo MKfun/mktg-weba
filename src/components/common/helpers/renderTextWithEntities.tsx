@@ -46,6 +46,7 @@ export function renderTextWithEntities({
   sharedCanvasHqRef,
   cacheBuster,
   forcePlayback,
+  noCustomEmojiPlayback,
   focusedQuote,
   isInSelectMode,
 }: {
@@ -65,6 +66,7 @@ export function renderTextWithEntities({
   sharedCanvasHqRef?: React.RefObject<HTMLCanvasElement>;
   cacheBuster?: string;
   forcePlayback?: boolean;
+  noCustomEmojiPlayback?: boolean;
   focusedQuote?: string;
   isInSelectMode?: boolean;
 }) {
@@ -173,6 +175,7 @@ export function renderTextWithEntities({
         sharedCanvasHqRef,
         cacheBuster,
         forcePlayback,
+        noCustomEmojiPlayback,
         isInSelectMode,
       });
 
@@ -388,6 +391,7 @@ function processEntity({
   sharedCanvasHqRef,
   cacheBuster,
   forcePlayback,
+  noCustomEmojiPlayback,
   isInSelectMode,
 } : {
   entity: ApiMessageEntity;
@@ -407,6 +411,7 @@ function processEntity({
   sharedCanvasHqRef?: React.RefObject<HTMLCanvasElement>;
   cacheBuster?: string;
   forcePlayback?: boolean;
+  noCustomEmojiPlayback?: boolean;
   isInSelectMode?: boolean;
 }) {
   const entityText = typeof entityContent === 'string' && entityContent;
@@ -447,6 +452,7 @@ function processEntity({
           observeIntersectionForPlaying={observeIntersectionForPlaying}
           withTranslucentThumb={withTranslucentThumbs}
           forceAlways={forcePlayback}
+          noPlay={noCustomEmojiPlayback}
         />
       );
     }
@@ -473,10 +479,11 @@ function processEntity({
           {renderNestedMessagePart()}
         </a>
       );
-    case ApiMessageEntityTypes.Hashtag:
+    case ApiMessageEntityTypes.Hashtag: {
+      const [tag, username] = entityContent.split('@');
       return (
         <a
-          onClick={handleHashtagClick}
+          onClick={() => handleHashtagClick(tag, username)}
           className="text-entity-link"
           dir="auto"
           data-entity-type={entity.type}
@@ -484,10 +491,12 @@ function processEntity({
           {renderNestedMessagePart()}
         </a>
       );
-    case ApiMessageEntityTypes.Cashtag:
+    }
+    case ApiMessageEntityTypes.Cashtag: {
+      const [tag, username] = entityContent.split('@');
       return (
         <a
-          onClick={handleHashtagClick}
+          onClick={() => handleHashtagClick(tag, username)}
           className="text-entity-link"
           dir="auto"
           data-entity-type={entity.type}
@@ -495,6 +504,7 @@ function processEntity({
           {renderNestedMessagePart()}
         </a>
       );
+    }
     case ApiMessageEntityTypes.Code:
       return (
         <code
@@ -555,7 +565,6 @@ function processEntity({
         <SafeLink
           url={getLinkUrl(entityText, entity)}
           text={entityText}
-          withNormalWordBreak
         >
           {renderNestedMessagePart()}
         </SafeLink>
@@ -578,6 +587,7 @@ function processEntity({
           observeIntersectionForPlaying={observeIntersectionForPlaying}
           withTranslucentThumb={withTranslucentThumbs}
           forceAlways={forcePlayback}
+          noPlay={noCustomEmojiPlayback}
         />
       );
     default:
@@ -658,8 +668,19 @@ function handleBotCommandClick(e: React.MouseEvent<HTMLAnchorElement>) {
   getActions().sendBotCommand({ command: e.currentTarget.innerText });
 }
 
-function handleHashtagClick(e: React.MouseEvent<HTMLAnchorElement>) {
-  getActions().searchHashtag({ hashtag: e.currentTarget.innerText });
+function handleHashtagClick(hashtag?: string, username?: string) {
+  if (!hashtag) return;
+  if (username) {
+    getActions().openChatByUsername({
+      username,
+      onChatChanged: {
+        action: 'searchHashtag',
+        payload: { hashtag },
+      },
+    });
+    return;
+  }
+  getActions().searchHashtag({ hashtag });
 }
 
 function handleCodeClick(e: React.MouseEvent<HTMLElement>) {

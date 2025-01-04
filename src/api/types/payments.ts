@@ -1,4 +1,4 @@
-import type { ApiPremiumSection } from '../../global/types';
+import type { PREMIUM_FEATURE_SECTIONS } from '../../config';
 import type { ApiWebDocument } from './bots';
 import type { ApiChat } from './chats';
 import type {
@@ -9,7 +9,6 @@ import type {
   ApiPaymentCredentials,
   BoughtPaidMedia,
 } from './messages';
-import type { ApiStarsSubscriptionPricing } from './misc';
 import type { StatisticsOverviewPercentage } from './statistics';
 import type { ApiUser } from './users';
 
@@ -115,6 +114,8 @@ export interface ApiReceiptRegular {
 }
 
 export type ApiReceipt = ApiReceiptRegular | ApiReceiptStars;
+
+export type ApiPremiumSection = typeof PREMIUM_FEATURE_SECTIONS[number];
 
 export interface ApiPremiumPromo {
   videoSections: ApiPremiumSection[];
@@ -302,6 +303,11 @@ export type ApiCheckedGiftCode = {
   usedAt?: number;
 };
 
+export interface ApiStarsAmount {
+  amount: number;
+  nanos: number;
+}
+
 export interface ApiStarsTransactionPeerUnsupported {
   type: 'unsupported';
 }
@@ -326,6 +332,10 @@ export interface ApiStarsTransactionPeerAds {
   type: 'ads';
 }
 
+export interface ApiStarsTransactionApi {
+  type: 'api';
+}
+
 export interface ApiStarsTransactionPeerPeer {
   type: 'peer';
   id: string;
@@ -338,13 +348,14 @@ export type ApiStarsTransactionPeer =
 | ApiStarsTransactionPeerPremiumBot
 | ApiStarsTransactionPeerFragment
 | ApiStarsTransactionPeerAds
+| ApiStarsTransactionApi
 | ApiStarsTransactionPeerPeer;
 
 export interface ApiStarsTransaction {
   id?: string;
   peer: ApiStarsTransactionPeer;
   messageId?: number;
-  stars: number;
+  stars: ApiStarsAmount;
   isRefund?: true;
   isGift?: true;
   starGift?: ApiStarGift;
@@ -359,6 +370,7 @@ export interface ApiStarsTransaction {
   photo?: ApiWebDocument;
   extendedMedia?: BoughtPaidMedia[];
   subscriptionPeriod?: number;
+  starRefCommision?: number;
 }
 
 export interface ApiStarsSubscription {
@@ -370,7 +382,16 @@ export interface ApiStarsSubscription {
   canRefulfill?: true;
   hasMissingBalance?: true;
   chatInviteHash?: string;
+  hasBotCancelled?: true;
+  title?: string;
+  photo?: ApiWebDocument;
+  invoiceSlug?: string;
 }
+
+export type ApiStarsSubscriptionPricing = {
+  period: number;
+  amount: number;
+};
 
 export interface ApiStarTopupOption {
   isExtended?: true;
@@ -394,3 +415,5 @@ export interface ApiStarGiveawayOption {
   amount: number;
   winners: ApiStarsGiveawayWinnerOption[];
 }
+
+export type ApiPaymentStatus = 'paid' | 'failed' | 'pending' | 'cancelled';

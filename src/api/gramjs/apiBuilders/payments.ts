@@ -1,7 +1,6 @@
 import bigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
 
-import type { ApiPremiumSection } from '../../../global/types';
 import type {
   ApiBoost,
   ApiBoostsStatus,
@@ -15,12 +14,14 @@ import type {
   ApiPaymentSavedInfo,
   ApiPremiumGiftCodeOption,
   ApiPremiumPromo,
+  ApiPremiumSection,
   ApiPremiumSubscriptionOption,
   ApiPrepaidGiveaway,
   ApiPrepaidStarsGiveaway,
   ApiReceipt,
   ApiStarGift,
   ApiStarGiveawayOption,
+  ApiStarsAmount,
   ApiStarsGiveawayWinnerOption,
   ApiStarsSubscription,
   ApiStarsTransaction,
@@ -233,6 +234,7 @@ export function buildApiInvoice(invoice: GramJs.Invoice): ApiInvoice {
     phoneToProvider,
     shippingAddressRequested,
     flexible,
+    subscriptionPeriod,
   } = invoice;
 
   const mappedPrices: ApiLabeledPrice[] = prices.map(({ label, amount }) => ({
@@ -258,6 +260,7 @@ export function buildApiInvoice(invoice: GramJs.Invoice): ApiInvoice {
     isPhoneSentToProvider: phoneToProvider,
     isShippingAddressRequested: shippingAddressRequested,
     isFlexible: flexible,
+    subscriptionPeriod,
   };
 }
 
@@ -459,6 +462,13 @@ export function buildApiStarsGiftOptions(option: GramJs.StarsGiftOption): ApiSta
   };
 }
 
+export function buildApiStarsAmount(amount: GramJs.StarsAmount): ApiStarsAmount {
+  return {
+    amount: amount.amount.toJSNumber(),
+    nanos: amount.nanos,
+  };
+}
+
 export function buildApiStarsGiveawayWinnersOption(
   option: GramJs.StarsGiveawayWinnersOption,
 ): ApiStarsGiveawayWinnerOption {
@@ -512,6 +522,10 @@ export function buildApiStarsTransactionPeer(peer: GramJs.TypeStarsTransactionPe
     return { type: 'ads' };
   }
 
+  if (peer instanceof GramJs.StarsTransactionPeerAPI) {
+    return { type: 'api' };
+  }
+
   if (peer instanceof GramJs.StarsTransactionPeer) {
     return { type: 'peer', id: getApiChatIdFromMtpPeer(peer.peer) };
   }
@@ -522,7 +536,7 @@ export function buildApiStarsTransactionPeer(peer: GramJs.TypeStarsTransactionPe
 export function buildApiStarsTransaction(transaction: GramJs.StarsTransaction): ApiStarsTransaction {
   const {
     date, id, peer, stars, description, photo, title, refund, extendedMedia, failed, msgId, pending, gift, reaction,
-    subscriptionPeriod, stargift, giveawayPostId,
+    subscriptionPeriod, stargift, giveawayPostId, starrefCommissionPermille,
   } = transaction;
 
   if (photo) {
@@ -532,11 +546,14 @@ export function buildApiStarsTransaction(transaction: GramJs.StarsTransaction): 
   const boughtExtendedMedia = extendedMedia?.map((m) => buildMessageMediaContent(m))
     .filter(Boolean) as BoughtPaidMedia[];
 
+  const starRefCommision = starrefCommissionPermille ? starrefCommissionPermille / 10 : undefined;
+  const supportedStarGift = (stargift instanceof GramJs.StarGift) ? stargift : undefined;
+
   return {
     id,
     date,
     peer: buildApiStarsTransactionPeer(peer),
-    stars: stars.toJSNumber(),
+    stars: buildApiStarsAmount(stars),
     title,
     description,
     photo: photo && buildApiWebDocument(photo),
@@ -548,15 +565,21 @@ export function buildApiStarsTransaction(transaction: GramJs.StarsTransaction): 
     extendedMedia: boughtExtendedMedia,
     subscriptionPeriod,
     isReaction: reaction,
-    starGift: stargift && buildApiStarGift(stargift),
+    starGift: supportedStarGift && buildApiStarGift(supportedStarGift),
     giveawayPostId,
+    starRefCommision,
   };
 }
 
 export function buildApiStarsSubscription(subscription: GramJs.StarsSubscription): ApiStarsSubscription {
   const {
-    id, peer, pricing, untilDate, canRefulfill, canceled, chatInviteHash, missingBalance,
+    id, peer, pricing, untilDate, canRefulfill, canceled, chatInviteHash, missingBalance, botCanceled, photo, title,
+    invoiceSlug,
   } = subscription;
+
+  if (photo) {
+    addWebDocumentToLocalDb(photo);
+  }
 
   return {
     id,
@@ -567,6 +590,10 @@ export function buildApiStarsSubscription(subscription: GramJs.StarsSubscription
     canRefulfill,
     hasMissingBalance: missingBalance,
     chatInviteHash,
+    hasBotCancelled: botCanceled,
+    title,
+    photo: photo && buildApiWebDocument(photo),
+    invoiceSlug,
   };
 }
 
@@ -583,7 +610,9 @@ export function buildApiStarTopupOption(option: GramJs.TypeStarsTopupOption): Ap
   };
 }
 
-export function buildApiStarGift(startGift: GramJs.StarGift): ApiStarGift {
+export function buildApiStarGift(startGift: GramJs.TypeStarGift): ApiStarGift | undefined {
+  const isTypeSupported = startGift instanceof GramJs.StarGift;
+  if (!isTypeSupported) return undefined;
   const {
     id, limited, sticker, stars, availabilityRemains, availabilityTotal, convertStars, firstSaleDate, lastSaleDate,
     soldOut,
@@ -609,7 +638,8 @@ export function buildApiUserStarGift(userStarGift: GramJs.UserStarGift): ApiUser
   } = userStarGift;
 
   return {
-    gift: buildApiStarGift(gift),
+    // ToDo: Use `!` temporarily to support layer 196
+    gift: buildApiStarGift(gift)!,
     date,
     starsToConvert: convertStars?.toJSNumber(),
     fromId: fromId && buildApiPeerId(fromId, 'user'),

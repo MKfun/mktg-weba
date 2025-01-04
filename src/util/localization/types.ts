@@ -116,30 +116,30 @@ type AdvancedLangFnParameters =
 export type LangFnParameters = RegularLangFnParameters | AdvancedLangFnParameters;
 
 export type LangFn = {
-  <K = RegularLangKey>(
+  <K extends RegularLangKey = RegularLangKey>(
     key: K, variables?: undefined, options?: LangFnOptions,
   ): string;
-  <K = PluralLangKey>(
+  <K extends PluralLangKey = PluralLangKey>(
     key: K, variables: undefined, options: LangFnOptionsWithPlural,
   ): string;
-  <K extends RegularLangKeyWithVariables = RegularLangKeyWithVariables, V = LangPairWithVariables[K]>(
-    key: K, variables: V, options?: LangFnOptions,
+  <K extends RegularLangKeyWithVariables = RegularLangKeyWithVariables>(
+    key: K, variables: LangPairWithVariables[K], options?: LangFnOptions,
   ): string;
-  <K extends PluralLangKeyWithVariables = PluralLangKeyWithVariables, V = LangPairPluralWithVariables[K]>(
-    key: K, variables: V, options: LangFnOptionsWithPlural,
+  <K extends PluralLangKeyWithVariables = PluralLangKeyWithVariables>(
+    key: K, variables: LangPairPluralWithVariables[K], options: LangFnOptionsWithPlural,
   ): string;
 
-  <K = RegularLangKey>(
+  <K extends RegularLangKey = RegularLangKey>(
     key: K, variables?: undefined, options?: AdvancedLangFnOptions,
   ): TeactNode;
-  <K = PluralLangKey>(
+  <K extends PluralLangKey = PluralLangKey>(
     key: K, variables: undefined, options: AdvancedLangFnOptionsWithPlural,
   ): TeactNode;
-  <K extends RegularLangKeyWithVariables = RegularLangKeyWithVariables, V = LangPairWithVariables[K]>(
-    key: K, variables: V, options: AdvancedLangFnOptions,
+  <K extends RegularLangKeyWithVariables = RegularLangKeyWithVariables>(
+    key: K, variables: LangPairWithVariables<TeactNode | undefined>[K], options: AdvancedLangFnOptions,
   ): TeactNode;
-  <K extends PluralLangKeyWithVariables = PluralLangKeyWithVariables, V = LangPairPluralWithVariables[K]>(
-    key: K, variables: V, options: AdvancedLangFnOptionsWithPlural,
+  <K extends PluralLangKeyWithVariables = PluralLangKeyWithVariables>(
+    key: K, variables: LangPairPluralWithVariables<TeactNode | undefined>[K], options: AdvancedLangFnOptionsWithPlural,
   ): TeactNode;
 
   with: (params: LangFnParameters) => TeactNode;

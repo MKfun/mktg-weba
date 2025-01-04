@@ -7,9 +7,11 @@ import { getActions, withGlobal } from '../../../global';
 import type {
   ApiPremiumGiftCodeOption,
   ApiStarGift,
+  ApiStarsAmount,
   ApiUser,
 } from '../../../api/types';
-import type { StarGiftCategory, TabState } from '../../../global/types';
+import type { TabState } from '../../../global/types';
+import type { StarGiftCategory } from '../../../types';
 
 import { getUserFullName } from '../../../global/helpers';
 import { selectUser } from '../../../global/selectors';
@@ -45,9 +47,11 @@ type StateProps = {
   boostPerSentGift?: number;
   starGiftsById?: Record<string, ApiStarGift>;
   starGiftCategoriesByName: Record<StarGiftCategory, string[]>;
-  starBalance?: number;
+  starBalance?: ApiStarsAmount;
   user?: ApiUser;
 };
+
+const AVATAR_SIZE = 100;
 
 const PremiumGiftModal: FC<OwnProps & StateProps> = ({
   modal,
@@ -232,7 +236,7 @@ const PremiumGiftModal: FC<OwnProps & StateProps> = ({
       <div className={buildClassName(styles.main, 'custom-scroll')} onScroll={handleScroll}>
         <div className={styles.avatars}>
           <Avatar
-            size="huge"
+            size={AVATAR_SIZE}
             peer={user}
           />
           <img className={styles.logoBackground} src={StarsBackground} alt="" draggable={false} />

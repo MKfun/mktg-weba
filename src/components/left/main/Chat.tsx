@@ -4,6 +4,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import type {
   ApiChat,
+  ApiDraft,
   ApiMessage,
   ApiMessageOutgoingStatus,
   ApiPeer,
@@ -13,7 +14,6 @@ import type {
   ApiUser,
   ApiUserStatus,
 } from '../../../api/types';
-import type { ApiDraft } from '../../../global/types';
 import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
 import type { ChatAnimationTypes } from './hooks';
 import { MAIN_THREAD_ID } from '../../../api/types';
@@ -21,7 +21,6 @@ import { StoryViewerOrigin } from '../../../types';
 
 import {
   getMessageAction,
-  getPrivateChatUserId,
   groupStatetefulContent,
   isUserId,
   isUserOnline,
@@ -367,6 +366,7 @@ const Chat: FC<OwnProps & StateProps> = ({
             shouldShowOnlyMostImportant
             forceHidden={getIsForumPanelClosed}
             topics={topics}
+            isSelected={isSelected}
           />
         </div>
         {chat.isCallActive && chat.isCallNotEmpty && (
@@ -400,7 +400,9 @@ const Chat: FC<OwnProps & StateProps> = ({
               isPinned={isPinned}
               isMuted={isMuted}
               isSavedDialog={isSavedDialog}
+              hasMiniApp={user?.hasMainMiniApp}
               topics={topics}
+              isSelected={isSelected}
             />
           )}
         </div>
@@ -439,6 +441,7 @@ export default memo(withGlobal<OwnProps>(
     chatId, isSavedDialog, isPreview, previewMessageId,
   }): StateProps => {
     const chat = selectChat(global, chatId);
+    const user = selectUser(global, chatId);
     if (!chat) {
       return {
         currentUserId: global.currentUserId!,
@@ -458,7 +461,6 @@ export default memo(withGlobal<OwnProps>(
       ? selectChatMessage(global, chat.id, replyToMessageId)
       : undefined;
     const { targetUserIds: actionTargetUserIds, targetChatId: actionTargetChatId } = lastMessageAction || {};
-    const privateChatUserId = getPrivateChatUserId(chat);
 
     const {
       chatId: currentChatId,
@@ -470,8 +472,7 @@ export default memo(withGlobal<OwnProps>(
     const isSelectedForum = (chat.isForum && chatId === currentChatId)
       || chatId === selectTabState(global).forumPanelChatId;
 
-    const user = privateChatUserId ? selectUser(global, privateChatUserId) : undefined;
-    const userStatus = privateChatUserId ? selectUserStatus(global, privateChatUserId) : undefined;
+    const userStatus = selectUserStatus(global, chatId);
     const lastMessageTopic = lastMessage && selectTopicFromMessage(global, lastMessage);
 
     const typingStatus = selectThreadParam(global, chatId, MAIN_THREAD_ID, 'typingStatus');

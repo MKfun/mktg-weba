@@ -3,11 +3,12 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiStory, ApiUser } from '../../api/types';
-import type { ApiPrivacySettings, PrivacyVisibility } from '../../types';
+import type {
+  ApiPrivacySettings, ApiStory, ApiUser, PrivacyVisibility,
+} from '../../api/types';
 import type { IconName } from '../../types/icons';
 
-import { getSenderTitle, getUserFullName } from '../../global/helpers';
+import { getPeerTitle, getUserFullName } from '../../global/helpers';
 import { selectPeerStory, selectTabState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import stopEvent from '../../util/stopEvent';
@@ -208,7 +209,7 @@ function StorySettings({
       }
 
       if (closeFriendIds.length === 1) {
-        return getSenderTitle(lang, usersById[closeFriendIds[0]]);
+        return getPeerTitle(lang, usersById[closeFriendIds[0]]);
       }
 
       return lang('StoryPrivacyOptionPeople', closeFriendIds.length, 'i');

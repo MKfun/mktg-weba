@@ -1,6 +1,7 @@
 import type {
   ApiAttachment,
   ApiChat,
+  ApiDraft,
   ApiError,
   ApiInputMessageReplyInfo,
   ApiInputReplyInfo,
@@ -19,10 +20,10 @@ import type {
 import type { MessageKey } from '../../../util/keys/messageKey';
 import type { RequiredGlobalActions } from '../../index';
 import type {
-  ActionReturnType, ApiDraft, GlobalState, TabArgs, WebPageMediaSize,
+  ActionReturnType, GlobalState, TabArgs,
 } from '../../types';
 import { MAIN_THREAD_ID, MESSAGE_DELETED } from '../../../api/types';
-import { LoadMoreDirection, type ThreadId } from '../../../types';
+import { LoadMoreDirection, type ThreadId, type WebPageMediaSize } from '../../../types';
 
 import {
   GIF_MIME_TYPE,
@@ -61,7 +62,9 @@ import {
   isMessageLocal,
   isServiceNotificationMessage,
   isUserBot,
+  splitMessagesForForwarding,
 } from '../../helpers';
+import { isApiPeerUser } from '../../helpers/peers';
 import {
   addActionHandler, getActions, getGlobal, setGlobal,
 } from '../../index';
@@ -83,6 +86,7 @@ import {
   updateListedIds,
   updateMessageTranslation,
   updateOutlyingLists,
+  updatePeerFullInfo,
   updateQuickReplies,
   updateQuickReplyMessages,
   updateRequestedMessageTranslation,
@@ -96,6 +100,7 @@ import {
 } from '../../reducers';
 import { updateTabState } from '../../reducers/tabs';
 import {
+  selectCanForwardMessage,
   selectChat,
   selectChatFullInfo,
   selectChatLastMessageId,
@@ -112,6 +117,7 @@ import {
   selectFocusedMessageId,
   selectForwardsCanBeSentToChat,
   selectForwardsContainVoiceMessages,
+  selectIsChatBotNotStarted,
   selectIsChatWithSelf,
   selectIsCurrentUserPremium,
   selectLanguageCode,
@@ -696,10 +702,10 @@ addActionHandler('toggleMessageWebPage', (global, actions, payload): ActionRetur
 
 addActionHandler('pinMessage', (global, actions, payload): ActionReturnType => {
   const {
-    messageId, isUnpin, isOneSide, isSilent, tabId = getCurrentTabId(),
+    chatId, messageId, isUnpin, isOneSide, isSilent,
   } = payload;
 
-  const chat = selectCurrentChat(global, tabId);
+  const chat = selectChat(global, chatId);
   if (!chat) {
     return;
   }
@@ -1142,23 +1148,29 @@ addActionHandler('forwardMessages', (global, actions, payload): ActionReturnType
   const lastMessageId = selectChatLastMessageId(global, toChat.id);
 
   const [realMessages, serviceMessages] = partition(messages, (m) => !isServiceNotificationMessage(m));
-  if (realMessages.length) {
+  const forwardableRealMessages = realMessages.filter((message) => selectCanForwardMessage(global, message));
+  if (forwardableRealMessages.length) {
+    const messageBatches = global.config?.maxForwardedCount
+      ? splitMessagesForForwarding(forwardableRealMessages, global.config.maxForwardedCount)
+      : [forwardableRealMessages];
     (async () => {
       await rafPromise(); // Wait one frame for any previous `sendMessage` to be processed
-      callApi('forwardMessages', {
-        fromChat,
-        toChat,
-        toThreadId,
-        messages: realMessages,
-        isSilent,
-        scheduledAt,
-        sendAs,
-        withMyScore,
-        noAuthors,
-        noCaptions,
-        isCurrentUserPremium,
-        wasDrafted: Boolean(draft),
-        lastMessageId,
+      messageBatches.forEach((batch) => {
+        callApi('forwardMessages', {
+          fromChat,
+          toChat,
+          toThreadId,
+          messages: batch,
+          isSilent,
+          scheduledAt,
+          sendAs,
+          withMyScore,
+          noAuthors,
+          noCaptions,
+          isCurrentUserPremium,
+          wasDrafted: Boolean(draft),
+          lastMessageId,
+        });
       });
     })();
   }
@@ -1211,6 +1223,10 @@ addActionHandler('loadScheduledHistory', async (global, actions, payload): Promi
   global = getGlobal();
   global = updateScheduledMessages(global, chat.id, byId);
   global = replaceThreadParam(global, chat.id, MAIN_THREAD_ID, 'scheduledIds', ids);
+  if (!ids.length) {
+    global = updatePeerFullInfo(global, chat.id, { hasScheduledMessages: false });
+  }
+
   if (chat?.isForum) {
     const scheduledPerThread: Record<ThreadId, number[]> = {};
     messages.forEach((message) => {
@@ -1625,56 +1641,60 @@ addActionHandler('loadSendAs', async (global, actions, payload): Promise<void> =
 });
 
 addActionHandler('loadSponsoredMessages', async (global, actions, payload): Promise<void> => {
-  const { chatId } = payload;
-  const chat = selectChat(global, chatId);
-  if (!chat) {
+  const { peerId } = payload;
+  const peer = selectPeer(global, peerId);
+  if (!peer) {
     return;
   }
 
-  const result = await callApi('fetchSponsoredMessages', { chat });
+  if (isApiPeerUser(peer) && selectIsChatBotNotStarted(global, peer.id)) {
+    return;
+  }
+
+  const result = await callApi('fetchSponsoredMessages', { peer });
   if (!result) {
     return;
   }
 
   global = getGlobal();
-  global = updateSponsoredMessage(global, chatId, result.messages[0]);
+  global = updateSponsoredMessage(global, peerId, result.messages[0]);
   setGlobal(global);
 });
 
 addActionHandler('viewSponsoredMessage', (global, actions, payload): ActionReturnType => {
-  const { chatId } = payload;
-  const chat = selectChat(global, chatId);
-  const message = selectSponsoredMessage(global, chatId);
-  if (!chat || !message) {
+  const { peerId } = payload;
+  const peer = selectPeer(global, peerId);
+  const message = selectSponsoredMessage(global, peerId);
+  if (!peer || !message) {
     return;
   }
 
-  void callApi('viewSponsoredMessage', { chat, random: message.randomId });
+  void callApi('viewSponsoredMessage', { peer, random: message.randomId });
 });
 
 addActionHandler('clickSponsoredMessage', (global, actions, payload): ActionReturnType => {
-  const { chatId, isMedia, isFullscreen } = payload;
-  const chat = selectChat(global, chatId);
-  const message = selectSponsoredMessage(global, chatId);
-  if (!chat || !message) {
+  const { peerId, isMedia, isFullscreen } = payload;
+  const peer = selectPeer(global, peerId);
+  const message = selectSponsoredMessage(global, peerId);
+  if (!peer || !message) {
     return;
   }
 
   void callApi('clickSponsoredMessage', {
-    chat, random: message.randomId, isMedia, isFullscreen,
+    peer, random: message.randomId, isMedia, isFullscreen,
   });
 });
 
 addActionHandler('reportSponsoredMessage', async (global, actions, payload): Promise<void> => {
   const {
-    chatId, randomId, option = '', tabId = getCurrentTabId(),
+    peerId, randomId, option = '', tabId = getCurrentTabId(),
   } = payload;
-  const chat = selectChat(global, chatId);
-  if (!chat) {
+  const peer = selectPeer(global, peerId);
+  if (!peer) {
     return;
   }
 
-  const result = await callApi('reportSponsoredMessage', { chat, randomId, option });
+  const result = await callApi('reportSponsoredMessage', { peer, randomId, option });
 
   if (!result) return;
 
@@ -1692,7 +1712,7 @@ addActionHandler('reportSponsoredMessage', async (global, actions, payload): Pro
     actions.closeReportAdModal({ tabId });
 
     global = getGlobal();
-    global = deleteSponsoredMessage(global, chatId);
+    global = deleteSponsoredMessage(global, peerId);
     setGlobal(global);
     return;
   }
@@ -1708,7 +1728,7 @@ addActionHandler('reportSponsoredMessage', async (global, actions, payload): Pro
     };
     global = updateTabState(global, {
       reportAdModal: {
-        chatId,
+        chatId: peerId,
         randomId,
         sections: oldSections ? [...oldSections, newSection] : [newSection],
       },

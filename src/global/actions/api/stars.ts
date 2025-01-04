@@ -1,6 +1,4 @@
-import type {
-  StarGiftCategory,
-} from '../../types';
+import type { StarGiftCategory } from '../../../types';
 
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { buildCollectionByKey } from '../../../util/iteratees';
@@ -10,6 +8,7 @@ import {
   appendStarsSubscriptions,
   appendStarsTransactions,
   updateStarsBalance,
+  updateStarsSubscriptionLoading,
 } from '../../reducers';
 import {
   selectPeer,
@@ -178,6 +177,9 @@ addActionHandler('loadStarsSubscriptions', async (global): Promise<void> => {
   const subscriptions = global.stars?.subscriptions;
   const offset = subscriptions?.nextOffset;
   if (subscriptions && !offset) return; // Already loaded all
+
+  global = updateStarsSubscriptionLoading(global, true);
+  setGlobal(global);
 
   const result = await callApi('fetchStarsSubscriptions', {
     offset: offset || '',

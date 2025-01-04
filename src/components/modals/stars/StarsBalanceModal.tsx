@@ -5,6 +5,7 @@ import { getActions, getGlobal, withGlobal } from '../../../global';
 
 import type { ApiStarTopupOption } from '../../../api/types';
 import type { GlobalState, TabState } from '../../../global/types';
+import type { RegularLangKey } from '../../../types/language';
 
 import { getChatTitle, getUserFullName } from '../../../global/helpers';
 import { selectChat, selectIsPremiumPurchaseBlocked, selectUser } from '../../../global/selectors';
@@ -35,10 +36,10 @@ import StarLogo from '../../../assets/icons/StarLogo.svg';
 import StarsBackground from '../../../assets/stars-bg.png';
 
 const TRANSACTION_TYPES = ['all', 'inbound', 'outbound'] as const;
-const TRANSACTION_TABS: TabWithProperties[] = [
-  { title: 'StarsTransactionsAll' },
-  { title: 'StarsTransactionsIncoming' },
-  { title: 'StarsTransactionsOutgoing' },
+const TRANSACTION_TABS_KEYS: RegularLangKey[] = [
+  'StarsTransactionsAll',
+  'StarsTransactionsIncoming',
+  'StarsTransactionsOutgoing',
 ];
 const TRANSACTION_ITEM_CLASS = 'StarsTransactionItem';
 const SUBSCRIPTION_PURPOSE = 'subs';
@@ -56,7 +57,7 @@ const StarsBalanceModal = ({
   modal, starsBalanceState, canBuyPremium,
 }: OwnProps & StateProps) => {
   const {
-    closeStarsBalanceModal, loadStarsTransactions, openStarsGiftingPickerModal, openInvoice,
+    closeStarsBalanceModal, loadStarsTransactions, loadStarsSubscriptions, openStarsGiftingPickerModal, openInvoice,
   } = getActions();
 
   const { balance, history, subscriptions } = starsBalanceState || {};
@@ -81,7 +82,7 @@ const StarsBalanceModal = ({
     || originReaction?.amount
     || originGift?.gift.stars
     || topup?.balanceNeeded;
-  const starsNeeded = ongoingTransactionAmount ? ongoingTransactionAmount - (balance || 0) : undefined;
+  const starsNeeded = ongoingTransactionAmount ? ongoingTransactionAmount - (balance?.amount || 0) : undefined;
   const starsNeededText = useMemo(() => {
     const global = getGlobal();
 
@@ -112,6 +113,12 @@ const StarsBalanceModal = ({
 
   const shouldShowItems = Boolean(history?.all?.transactions.length && !shouldOpenOnBuy);
   const shouldSuggestGifting = !shouldOpenOnBuy;
+
+  const transactionTabs: TabWithProperties[] = useMemo(() => {
+    return TRANSACTION_TABS_KEYS.map((key) => ({
+      title: lang(key),
+    }));
+  }, [lang]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -152,6 +159,10 @@ const StarsBalanceModal = ({
     loadStarsTransactions({
       type: TRANSACTION_TYPES[selectedTabIndex],
     });
+  });
+
+  const handleLoadMoreSubscriptions = useLastCallback(() => {
+    loadStarsSubscriptions();
   });
 
   const openStarsGiftingPickerModalHandler = useLastCallback(() => {
@@ -240,6 +251,19 @@ const StarsBalanceModal = ({
                   subscription={subscription}
                 />
               ))}
+              {subscriptions?.nextOffset && (
+                <Button
+                  isText
+                  disabled={subscriptions.isLoading}
+                  size="smaller"
+                  noForcedUpperCase
+                  className={styles.loadMore}
+                  onClick={handleLoadMoreSubscriptions}
+                >
+                  <Icon name="down" className={styles.loadMoreIcon} />
+                  {oldLang('StarMySubscriptionsExpand')}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -249,7 +273,7 @@ const StarsBalanceModal = ({
               <Transition
                 name={lang.isRtl ? 'slideOptimizedRtl' : 'slideOptimized'}
                 activeKey={selectedTabIndex}
-                renderCount={TRANSACTION_TABS.length}
+                renderCount={TRANSACTION_TABS_KEYS.length}
                 shouldRestoreHeight
                 className={styles.transition}
               >
@@ -275,7 +299,7 @@ const StarsBalanceModal = ({
               className={styles.tabs}
               tabClassName={styles.tab}
               activeTab={selectedTabIndex}
-              tabs={TRANSACTION_TABS}
+              tabs={transactionTabs}
               onSwitchTab={setSelectedTabIndex}
             />
           </div>

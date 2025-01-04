@@ -1,12 +1,18 @@
 import type {
   ApiReceiptRegular,
   ApiReceiptStars,
+  ApiStarsAmount,
   ApiStarsSubscription,
   ApiStarsTransaction,
 } from '../../api/types';
-import type { PaymentStep, ShippingOption } from '../../types';
 import type {
-  GlobalState, StarsTransactionType, TabArgs, TabState,
+  PaymentStep,
+  ShippingOption,
+  StarsSubscriptions,
+  StarsTransactionType,
+} from '../../types';
+import type {
+  GlobalState, TabArgs, TabState,
 } from '../types';
 
 import { getCurrentTabId } from '../../util/establishMultitabRole';
@@ -131,7 +137,7 @@ export function closeInvoice<T extends GlobalState>(
 }
 
 export function updateStarsBalance<T extends GlobalState>(
-  global: T, balance: number,
+  global: T, balance: ApiStarsAmount,
 ): T {
   return {
     ...global,
@@ -182,13 +188,33 @@ export function appendStarsSubscriptions<T extends GlobalState>(
   const newObject = {
     list: (global.stars.subscriptions?.list || []).concat(subscriptions),
     nextOffset,
-  };
+  } satisfies StarsSubscriptions;
 
   return {
     ...global,
     stars: {
       ...global.stars,
       subscriptions: newObject,
+    },
+  };
+}
+
+export function updateStarsSubscriptionLoading<T extends GlobalState>(
+  global: T, isLoading: boolean,
+): T {
+  const subscriptions = global.stars?.subscriptions;
+  if (!subscriptions) {
+    return global;
+  }
+
+  return {
+    ...global,
+    stars: {
+      ...global.stars,
+      subscriptions: {
+        ...subscriptions,
+        isLoading,
+      },
     },
   };
 }
@@ -212,7 +238,10 @@ export function openStarsTransactionFromReceipt<T extends GlobalState>(
       type: 'peer',
       id: receipt.botId,
     },
-    stars: receipt.totalAmount,
+    stars: {
+      amount: receipt.totalAmount,
+      nanos: 0,
+    },
     date: receipt.date,
     title: receipt.title,
     description: receipt.description,

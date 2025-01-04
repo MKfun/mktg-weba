@@ -40,6 +40,7 @@ export type OwnProps = {
   dialogStyle?: string;
   dialogRef?: React.RefObject<HTMLDivElement>;
   isLowStackPriority?: boolean;
+  dialogContent?: React.ReactNode;
   onClose: () => void;
   onCloseAnimationEnd?: () => void;
   onEnter?: () => void;
@@ -62,6 +63,7 @@ const Modal: FC<OwnProps> = ({
   style,
   dialogStyle,
   isLowStackPriority,
+  dialogContent,
   onClose,
   onCloseAnimationEnd,
   onEnter,
@@ -131,21 +133,26 @@ const Modal: FC<OwnProps> = ({
     }
 
     if (!title && !withCloseButton) return undefined;
+    const closeButton = (
+      <Button
+        className={buildClassName(hasAbsoluteCloseButton && 'modal-absolute-close-button')}
+        round
+        color="translucent"
+        size="smaller"
+        ariaLabel={lang('Close')}
+        onClick={onClose}
+      >
+        <Icon name="close" />
+      </Button>
+    );
+
+    if (hasAbsoluteCloseButton) {
+      return closeButton;
+    }
 
     return (
       <div className={buildClassName('modal-header', headerClassName)}>
-        {withCloseButton && (
-          <Button
-            className={buildClassName(hasAbsoluteCloseButton && 'modal-absolute-close-button')}
-            round
-            color="translucent"
-            size="smaller"
-            ariaLabel={lang('Close')}
-            onClick={onClose}
-          >
-            <Icon name="close" />
-          </Button>
-        )}
+        {withCloseButton && closeButton}
         <div className="modal-title">{title}</div>
       </div>
     );
@@ -171,6 +178,7 @@ const Modal: FC<OwnProps> = ({
           <div className="modal-backdrop" onClick={!noBackdropClose ? onClose : undefined} />
           <div className="modal-dialog" ref={dialogRef} style={dialogStyle}>
             {renderHeader()}
+            {dialogContent}
             <div className={buildClassName('modal-content custom-scroll', contentClassName)} style={style}>
               {children}
             </div>

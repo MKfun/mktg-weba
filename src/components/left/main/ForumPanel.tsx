@@ -6,7 +6,7 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiChat } from '../../../api/types';
-import type { TopicsInfo } from '../../../global/types';
+import type { TopicsInfo } from '../../../types';
 import { MAIN_THREAD_ID } from '../../../api/types';
 
 import {
@@ -260,7 +260,7 @@ const ForumPanel: FC<OwnProps & StateProps> = ({
           )}
       </div>
 
-      {chat && <GroupCallTopPane chatId={chat.id} hasPinnedOffset={false} className={styles.groupCall} />}
+      {chat && <GroupCallTopPane chatId={chat.id} />}
 
       <div className={styles.notch} />
 

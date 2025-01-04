@@ -1,5 +1,4 @@
-import type { WebPageMediaSize } from '../../global/types';
-import type { ThreadId } from '../../types';
+import type { ThreadId, WebPageMediaSize } from '../../types';
 import type { ApiWebDocument } from './bots';
 import type { ApiGroupCall, PhoneCallAction } from './calls';
 import type { ApiChat, ApiPeerColor } from './chats';
@@ -116,6 +115,7 @@ export interface ApiVideo {
   previewBlobUrl?: string;
   size: number;
   noSound?: boolean;
+  waveform?: number[];
 }
 
 export interface ApiAudio {
@@ -341,6 +341,7 @@ export interface ApiInvoice {
   currency: string;
   isTest?: boolean;
   isRecurring?: boolean;
+  subscriptionPeriod?: number;
   termsUrl?: string;
   maxTipAmount?: number;
   suggestedTipAmounts?: number[];
@@ -463,7 +464,7 @@ export interface ApiMessageActionStarGift {
   isConverted?: boolean;
   gift: ApiStarGift;
   message?: ApiFormattedText;
-  starsToConvert: number;
+  starsToConvert?: number;
 }
 
 export interface ApiAction {
@@ -477,6 +478,7 @@ export interface ApiAction {
   | 'chatCreate'
   | 'topicCreate'
   | 'suggestProfilePhoto'
+  | 'updateProfilePhoto'
   | 'joinedChannel'
   | 'chatBoost'
   | 'receipt'
@@ -753,6 +755,8 @@ export interface ApiMessage {
   factCheck?: ApiFactCheck;
   effectId?: string;
   isInvertedMedia?: true;
+  isVideoProcessingPending?: true;
+  areReactionsPossible?: true;
 }
 
 export interface ApiReactions {
@@ -1006,6 +1010,7 @@ export type ApiTranscription = {
 
 export type ApiMessageSearchType = 'text' | 'media' | 'documents' | 'links' | 'audio' | 'voice' | 'profilePhoto';
 export type ApiGlobalMessageSearchType = 'text' | 'channels' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
+export type ApiMessageSearchContext = 'all' | 'users' | 'groups' | 'channels';
 
 export type ApiReportReason = 'spam' | 'violence' | 'pornography' | 'childAbuse'
 | 'copyright' | 'geoIrrelevant' | 'fake' | 'illegalDrugs' | 'personalDetails' | 'other';
@@ -1068,13 +1073,6 @@ export type ApiSponsoredMessageReportResult = {
     text: string;
     option: string;
   }[];
-};
-
-export type ApiClickSponsoredMessage = {
-  chat: ApiChat;
-  random: string;
-  isMedia?: boolean;
-  isFullscreen?: boolean;
 };
 
 export const MAIN_THREAD_ID = -1;

@@ -5,20 +5,8 @@
   margin: 4.25rem auto 0.25rem;
   z-index: var(--z-notification);
 
-  .has-header-tools & {
-    margin-top: 7.375rem;
-  }
-
-  @media (min-width: 1276px) {
-    transition: transform var(--layer-transition);
-  }
-
   & ~ & {
     margin-top: 0.25rem;
-
-    .has-header-tools & {
-      margin-top: 0.25rem;
-    }
   }
 }
 
@@ -52,11 +40,18 @@
   }
 
   .notification-title {
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
   }
 
   .notification-icon {
     font-size: 1.75rem;
+  }
+
+  .notification-emoji-icon {
+    --custom-emoji-size: 1.75rem;
+  }
+
+  .notification-icon, .notification-emoji-icon {
     margin-inline-end: 0.75rem;
   }
 
@@ -66,7 +61,7 @@
 
   .notification-button {
     color: var(--color-primary);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     text-transform: none;
     margin-inline-start: 0.125rem;
     height: 2rem;

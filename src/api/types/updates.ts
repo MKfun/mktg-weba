@@ -1,4 +1,4 @@
-import type { ApiDraft, TabState } from '../../global/types';
+import type { TabState } from '../../global/types';
 import type {
   GroupCallConnectionData,
   GroupCallConnectionState,
@@ -6,7 +6,7 @@ import type {
   VideoRotation,
   VideoState,
 } from '../../lib/secret-sauce';
-import type { ApiPrivacyKey, PrivacyVisibility, ThreadId } from '../../types';
+import type { ThreadId } from '../../types';
 import type { ApiBotMenuButton } from './bots';
 import type {
   ApiGroupCall, ApiPhoneCall,
@@ -16,6 +16,7 @@ import type {
   ApiChatFolder,
   ApiChatFullInfo,
   ApiChatMember,
+  ApiDraft,
   ApiTypingStatus,
 } from './chats';
 import type {
@@ -34,7 +35,8 @@ import type {
 import type {
   ApiEmojiInteraction, ApiError, ApiNotifyException, ApiSessionData,
 } from './misc';
-import type { LangPackStringValue } from './settings';
+import type { ApiStarsAmount } from './payments';
+import type { ApiPrivacyKey, LangPackStringValue, PrivacyVisibility } from './settings';
 import type { ApiStealthMode, ApiStory, ApiStorySkipped } from './stories';
 import type {
   ApiEmojiStatus, ApiUser, ApiUserFullInfo, ApiUserStatus,
@@ -285,6 +287,13 @@ export type ApiUpdateMessageSendSucceeded = {
   poll?: ApiPoll;
 };
 
+export type ApiUpdateVideoProcessingPending = {
+  '@type': 'updateVideoProcessingPending';
+  chatId: string;
+  localId: number;
+  newScheduledMessageId: number;
+};
+
 export type ApiUpdateMessageSendFailed = {
   '@type': 'updateMessageSendFailed';
   chatId: string;
@@ -332,7 +341,8 @@ export type ApiUpdateDeleteMessages = {
 export type ApiUpdateDeleteScheduledMessages = {
   '@type': 'deleteScheduledMessages';
   ids: number[];
-  chatId?: string;
+  newIds?: number[];
+  chatId: string;
 };
 
 export type ApiUpdateDeleteHistory = {
@@ -752,7 +762,7 @@ export type ApiUpdatePremiumFloodWait = {
 
 export type ApiUpdateStarsBalance = {
   '@type': 'updateStarsBalance';
-  balance: number;
+  balance: ApiStarsAmount;
 };
 
 export type ApiUpdateDeleteProfilePhoto = {
@@ -801,7 +811,7 @@ export type ApiUpdate = (
   ApiUpdateNewMessage | ApiUpdateMessage | ApiUpdateThreadInfo | ApiUpdateCommonBoxMessages |
   ApiUpdateDeleteMessages | ApiUpdateMessagePoll | ApiUpdateMessagePollVote | ApiUpdateDeleteHistory |
   ApiUpdateMessageSendSucceeded | ApiUpdateMessageSendFailed | ApiUpdateServiceNotification |
-  ApiDeleteContact | ApiUpdateUser | ApiUpdateUserStatus | ApiUpdateUserFullInfo |
+  ApiDeleteContact | ApiUpdateUser | ApiUpdateUserStatus | ApiUpdateUserFullInfo | ApiUpdateVideoProcessingPending |
   ApiUpdateAvatar | ApiUpdateMessageImage | ApiUpdateDraftMessage |
   ApiUpdateError | ApiUpdateResetContacts | ApiUpdateStartEmojiInteraction |
   ApiUpdateFavoriteStickers | ApiUpdateStickerSet | ApiUpdateStickerSets | ApiUpdateStickerSetsOrder |

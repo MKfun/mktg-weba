@@ -10,7 +10,7 @@ import type {
 } from '../../../../api/types';
 import type { TabState } from '../../../../global/types';
 
-import { getSenderTitle } from '../../../../global/helpers';
+import { getPeerTitle } from '../../../../global/helpers';
 import {
   selectUser,
 } from '../../../../global/selectors';
@@ -40,6 +40,8 @@ export type OwnProps = {
 type StateProps = {
   user?: ApiUser;
 };
+
+const AVATAR_SIZE = 100;
 
 const StarsGiftModal: FC<OwnProps & StateProps> = ({
   modal,
@@ -136,20 +138,24 @@ const StarsGiftModal: FC<OwnProps & StateProps> = ({
     const parts = text.split('{link}');
     return [
       parts[0],
-      <SafeLink url={oldLang('StarsTOSLink')} text={oldLang('lng_credits_summary_options_about_link')} />,
+      <SafeLink
+        url={oldLang('StarsTOSLink')}
+        text={oldLang('lng_credits_summary_options_about_link')}
+      />,
       parts[1],
     ];
   }, [oldLang]);
 
   return (
     <Modal
-      className={buildClassName(styles.modalDialog, styles.root)}
+      className={buildClassName(styles.modalDialog)}
+      contentClassName={styles.content}
       dialogRef={dialogRef}
       isSlim
       onClose={handleClose}
       isOpen={isOpen}
     >
-      <div className={styles.main} onScroll={handleScroll}>
+      <div className={buildClassName(styles.main, 'custom-scroll')} onScroll={handleScroll}>
         <Button
           round
           size="smaller"
@@ -170,7 +176,7 @@ const StarsGiftModal: FC<OwnProps & StateProps> = ({
           {user ? (
             <>
               <Avatar
-                size="huge"
+                size={AVATAR_SIZE}
                 peer={user}
                 className={styles.avatar}
               />
@@ -188,7 +194,7 @@ const StarsGiftModal: FC<OwnProps & StateProps> = ({
         </h2>
         <p className={styles.description}>
           {user ? renderText(
-            oldLang('ActionGiftStarsSubtitle', getSenderTitle(oldLang, user)), ['simple_markdown'],
+            oldLang('ActionGiftStarsSubtitle', getPeerTitle(oldLang, user)), ['simple_markdown'],
           ) : oldLang('Stars.Purchase.GetStarsInfo')}
         </p>
         <div className={styles.section}>

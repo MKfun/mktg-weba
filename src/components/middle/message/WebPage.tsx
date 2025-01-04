@@ -22,6 +22,7 @@ import useOldLang from '../../../hooks/useOldLang';
 import Audio from '../../common/Audio';
 import Document from '../../common/Document';
 import EmojiIconBackground from '../../common/embedded/EmojiIconBackground';
+import PeerColorWrapper from '../../common/PeerColorWrapper';
 import SafeLink from '../../common/SafeLink';
 import StickerView from '../../common/StickerView';
 import Button from '../../ui/Button';
@@ -83,11 +84,9 @@ const WebPage: FC<OwnProps> = ({
   onCancelMediaTransfer,
   isEditing,
 }) => {
-  const { openTelegramLink } = getActions();
+  const { openUrl, openTelegramLink } = getActions();
   const webPage = getMessageWebPage(message);
   const { isMobile } = useAppLayout();
-  // eslint-disable-next-line no-null/no-null
-  const ref = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
   const stickersRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +95,7 @@ const WebPage: FC<OwnProps> = ({
   const handleMediaClick = useLastCallback(() => {
     onMediaClick!();
   });
+
   const handleContainerClick = useLastCallback((e: React.MouseEvent) => {
     onContainerClick?.(e);
   });
@@ -177,8 +177,7 @@ const WebPage: FC<OwnProps> = ({
   }
 
   return (
-    <div
-      ref={ref}
+    <PeerColorWrapper
       className={className}
       data-initial={(siteName || displayUrl)[0]}
       dir={lang.isRtl ? 'rtl' : 'auto'}
@@ -193,6 +192,20 @@ const WebPage: FC<OwnProps> = ({
         )}
         {isStory && (
           <BaseStory story={story} isProtected={isProtected} isConnected={isConnected} isPreview />
+        )}
+        {isArticle && (
+          <div
+            className={buildClassName('WebPage-text', !inPreview && 'WebPage-text_interactive')}
+            onClick={!inPreview ? () => openUrl({ url, shouldSkipModal: true }) : undefined}
+          >
+            <SafeLink className="site-name" url={url} text={siteName || displayUrl} />
+            {!inPreview && title && (
+              <p className="site-title">{renderText(title)}</p>
+            )}
+            {truncatedDescription && (
+              <p className="site-description">{renderText(truncatedDescription, ['emoji', 'br'])}</p>
+            )}
+          </div>
         )}
         {photo && !video && !document && (
           <Photo
@@ -211,17 +224,6 @@ const WebPage: FC<OwnProps> = ({
             onClick={isMediaInteractive ? handleMediaClick : undefined}
             onCancelUpload={onCancelMediaTransfer}
           />
-        )}
-        {isArticle && (
-          <div className="WebPage-text">
-            <SafeLink className="site-name" url={url} text={siteName || displayUrl} />
-            {!inPreview && title && (
-              <p className="site-title">{renderText(title)}</p>
-            )}
-            {truncatedDescription && (
-              <p className="site-description">{renderText(truncatedDescription, ['emoji', 'br'])}</p>
-            )}
-          </div>
         )}
         {!inPreview && video && (
           <Video
@@ -292,7 +294,7 @@ const WebPage: FC<OwnProps> = ({
         )}
       </div>
       {quickButtonLangKey && renderQuickButton(quickButtonLangKey)}
-    </div>
+    </PeerColorWrapper>
   );
 };
 
