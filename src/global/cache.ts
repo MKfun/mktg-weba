@@ -260,10 +260,8 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
   if (!cached.messages.pollById) {
     cached.messages.pollById = initialState.messages.pollById;
   }
-
-  if (!cached.stickers.starGifts) {
-    cached.stickers.starGifts = initialState.stickers.starGifts;
-    cached.users.giftsById = initialState.users.giftsById;
+  if (!cached.settings.botVerificationShownPeerIds) {
+    cached.settings.botVerificationShownPeerIds = initialState.settings.botVerificationShownPeerIds;
   }
 }
 
@@ -615,7 +613,9 @@ function omitLocalMedia(message: ApiMessage): ApiMessage {
 }
 
 function reduceSettings<T extends GlobalState>(global: T): GlobalState['settings'] {
-  const { byKey, themes, performance } = global.settings;
+  const {
+    byKey, themes, performance, botVerificationShownPeerIds,
+  } = global.settings;
 
   return {
     byKey,
@@ -623,6 +623,7 @@ function reduceSettings<T extends GlobalState>(global: T): GlobalState['settings
     performance,
     privacy: {},
     notifyExceptions: {},
+    botVerificationShownPeerIds,
   };
 }
 

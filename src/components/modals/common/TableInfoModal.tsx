@@ -15,7 +15,7 @@ import Modal from '../../ui/Modal';
 
 import styles from './TableInfoModal.module.scss';
 
-type ChatItem = { chatId: string };
+type ChatItem = { chatId: string; withEmojiStatus?: boolean };
 
 export type TableData = [TeactNode | undefined, TeactNode | ChatItem][];
 
@@ -28,6 +28,7 @@ type OwnProps = {
   footer?: TeactNode;
   buttonText?: string;
   className?: string;
+  hasBackdrop?: boolean;
   onClose: NoneToVoidFunction;
   onButtonClick?: NoneToVoidFunction;
 };
@@ -41,6 +42,7 @@ const TableInfoModal = ({
   footer,
   buttonText,
   className,
+  hasBackdrop,
   onClose,
   onButtonClick,
 }: OwnProps) => {
@@ -55,6 +57,7 @@ const TableInfoModal = ({
       isOpen={isOpen}
       hasCloseButton={Boolean(title)}
       hasAbsoluteCloseButton={!title}
+      absoluteCloseButtonColor={hasBackdrop ? 'translucent-white' : undefined}
       isSlim
       title={title}
       className={className}
@@ -76,6 +79,7 @@ const TableInfoModal = ({
                   className={styles.chatItem}
                   forceShowSelf
                   fluid
+                  withEmojiStatus={value.withEmojiStatus}
                   clickArg={value.chatId}
                   onClick={handleOpenChat}
                 />

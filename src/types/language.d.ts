@@ -1108,6 +1108,8 @@ export interface LangPair {
   'GiftPremiumDescriptionLinkCaption': undefined;
   'GiftPremiumDescriptionLink': undefined;
   'StarsGiftHeader': undefined;
+  'StarsGiftHeaderSelf': undefined;
+  'StarGiftDescriptionSelf': undefined;
   'GiftLimited': undefined;
   'GiftSoldOut': undefined;
   'GiftMessagePlaceholder': undefined;
@@ -1130,8 +1132,15 @@ export interface LangPair {
   'GiftInfoSoldOutTitle': undefined;
   'GiftInfoSoldOutDescription': undefined;
   'GiftInfoSenderHidden': undefined;
+  'GiftInfoOwner': undefined;
+  'GiftAttributeModel': undefined;
+  'GiftAttributeBackdrop': undefined;
+  'GiftAttributeSymbol': undefined;
+  'GiftInfoStatus': undefined;
+  'GiftInfoStatusNonUnique': undefined;
   'AllGiftsCategory': undefined;
   'LimitedGiftsCategory': undefined;
+  'StockGiftsCategory': undefined;
   'PremiumGiftDescription': undefined;
   'StarsReactionLinkText': undefined;
   'StarsReactionLink': undefined;
@@ -1174,6 +1183,9 @@ export interface LangPair {
   'PrivateChatsSearchContext': undefined;
   'GroupChatsSearchContext': undefined;
   'ChannelsSearchContext': undefined;
+  'FolderLinkSubtitleNew': undefined;
+  'FolderLinkSubtitleAlready': undefined;
+  'FolderLinkAddFolder': undefined;
   'SearchTabChats': undefined;
   'SearchTabChannels': undefined;
   'SearchTabApps': undefined;
@@ -1544,6 +1556,33 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   'GiftInfoSaved': {
     'link': V;
   };
+  'GiftInfoIssued': {
+    'issued': V;
+    'total': V;
+  };
+  'GiftInfoCollectible': {
+    'number': V;
+  };
+  'GiftInfoOriginalInfo': {
+    'user': V;
+    'date': V;
+  };
+  'GiftInfoOriginalInfoSender': {
+    'sender': V;
+    'user': V;
+    'date': V;
+  };
+  'GiftInfoOriginalInfoText': {
+    'user': V;
+    'date': V;
+    'text': V;
+  };
+  'GiftInfoOriginalInfoTextSender': {
+    'sender': V;
+    'user': V;
+    'date': V;
+    'text': V;
+  };
   'StarsAmount': {
     'amount': V;
   };
@@ -1612,6 +1651,19 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   'FolderLinkTitleDescription': {
     'folder': V;
     'chats': V;
+  };
+  'FolderLinkSubtitleAdd': {
+    'chats': V;
+    'title': V;
+  };
+  'FolderLinkNotificationDeletedTitle': {
+    'title': V;
+  };
+  'FolderLinkNotificationAddedTitle': {
+    'title': V;
+  };
+  'FolderLinkNotificationUpdatedTitle': {
+    'title': V;
   };
 }
 
@@ -1795,6 +1847,18 @@ export interface LangPairPluralWithVariables<V extends unknown = LangVariable> {
     'amount': V;
   };
   'FolderLinkTitleDescriptionChats': {
+    'count': V;
+  };
+  'FolderLinkSubtitleAddCount': {
+    'count': V;
+  };
+  'FolderLinkNotificationDeletedSubtitle': {
+    'count': V;
+  };
+  'FolderLinkNotificationAddedSubtitle': {
+    'count': V;
+  };
+  'FolderLinkNotificationUpdatedSubtitle': {
     'count': V;
   };
 }
