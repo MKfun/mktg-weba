@@ -2,12 +2,21 @@ import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
 
 import type {
-  ApiChat, ApiInputStorePaymentPurpose, ApiPeer, ApiRequestInputInvoice,
-  ApiSticker, ApiThemeParameters,
-  ApiUser,
+  ApiChat,
+  ApiInputStorePaymentPurpose,
+  ApiPeer,
+  ApiRequestInputInvoice,
+  ApiRequestInputSavedStarGift,
+  ApiStarGiftRegular,
+  ApiThemeParameters,
 } from '../../types';
 
 import { DEBUG } from '../../../config';
+import {
+  buildApiSavedStarGift,
+  buildApiStarGift,
+  buildApiStarGiftAttribute,
+} from '../apiBuilders/gifts';
 import {
   buildApiBoost,
   buildApiBoostsStatus,
@@ -18,29 +27,33 @@ import {
   buildApiPremiumGiftCodeOption,
   buildApiPremiumPromo,
   buildApiReceipt,
-  buildApiStarGift,
   buildApiStarsAmount,
   buildApiStarsGiftOptions,
   buildApiStarsGiveawayOptions,
   buildApiStarsSubscription,
   buildApiStarsTransaction,
   buildApiStarTopupOption,
-  buildApiUserStarGift,
   buildShippingOptions,
 } from '../apiBuilders/payments';
 import { buildApiPeerId } from '../apiBuilders/peers';
-import { buildStickerFromDocument } from '../apiBuilders/symbols';
 import {
-  buildInputInvoice, buildInputPeer, buildInputStorePaymentPurpose, buildInputThemeParams, buildShippingInfo,
+  buildInputInvoice,
+  buildInputPeer,
+  buildInputSavedStarGift,
+  buildInputStorePaymentPurpose,
+  buildInputThemeParams,
+  buildShippingInfo,
 } from '../gramjsBuilders';
 import {
+  checkErrorType,
   deserializeBytes,
   serializeBytes,
-} from '../helpers';
+  wrapError,
+} from '../helpers/misc';
 import localDb from '../localDb';
 import { sendApiUpdate } from '../updates/apiUpdateEmitter';
 import { handleGramJsUpdate, invokeRequest } from './client';
-import { getTemporaryPaymentPassword } from './twoFaSettings';
+import { getPassword, getTemporaryPaymentPassword } from './twoFaSettings';
 
 export async function validateRequestedInfo({
   inputInvoice,
@@ -430,34 +443,21 @@ export async function fetchStarGifts() {
     return undefined;
   }
 
-  const gifts = result.gifts.map(buildApiStarGift);
-  const stickers : Record<string, ApiSticker> = {};
-
-  result.gifts.forEach((gift) => {
-    if (gift.sticker instanceof GramJs.Document) {
-      localDb.documents[String(gift.sticker.id)] = gift.sticker;
-    }
-
-    const sticker = buildStickerFromDocument(gift.sticker);
-    if (sticker) {
-      stickers[sticker.id] = sticker;
-    }
-  });
-
-  return { gifts, stickers };
+  // Right now, only regular star gifts can be bought, but API are not specific
+  return result.gifts.map(buildApiStarGift).filter((gift): gift is ApiStarGiftRegular => gift.type === 'starGift');
 }
 
-export async function fetchUserStarGifts({
-  user,
+export async function fetchSavedStarGifts({
+  peer,
   offset = '',
   limit,
 }: {
-  user: ApiUser;
+  peer: ApiPeer;
   offset?: string;
   limit?: number;
 }) {
-  const result = await invokeRequest(new GramJs.payments.GetUserStarGifts({
-    userId: buildInputPeer(user.id, user.accessHash),
+  const result = await invokeRequest(new GramJs.payments.GetSavedStarGifts({
+    peer: buildInputPeer(peer.id, peer.accessHash),
     offset,
     limit,
   }));
@@ -466,7 +466,7 @@ export async function fetchUserStarGifts({
     return undefined;
   }
 
-  const gifts = result.gifts.map(buildApiUserStarGift);
+  const gifts = result.gifts.map((g) => buildApiSavedStarGift(g, peer.id));
 
   return {
     gifts,
@@ -475,31 +475,25 @@ export async function fetchUserStarGifts({
 }
 
 export function saveStarGift({
-  user,
-  messageId,
+  inputGift,
   shouldUnsave,
 }: {
-  user: ApiUser;
-  messageId: number;
+  inputGift: ApiRequestInputSavedStarGift;
   shouldUnsave?: boolean;
 }) {
   return invokeRequest(new GramJs.payments.SaveStarGift({
-    userId: buildInputPeer(user.id, user.accessHash),
-    msgId: messageId,
+    stargift: buildInputSavedStarGift(inputGift),
     unsave: shouldUnsave || undefined,
   }));
 }
 
 export function convertStarGift({
-  user,
-  messageId,
+  inputSavedGift,
 }: {
-  user: ApiUser;
-  messageId: number;
+  inputSavedGift: ApiRequestInputSavedStarGift;
 }) {
   return invokeRequest(new GramJs.payments.ConvertStarGift({
-    userId: buildInputPeer(user.id, user.accessHash),
-    msgId: messageId,
+    stargift: buildInputSavedStarGift(inputSavedGift),
   }));
 }
 
@@ -588,7 +582,7 @@ export async function fetchStarsTransactionById({
   }
 
   return {
-    transaction: buildApiStarsTransaction(result.history[0]),
+    transaction: buildApiStarsTransaction(result?.history[0]),
   };
 }
 
@@ -653,4 +647,86 @@ export async function fetchStarsTopupOptions() {
   }
 
   return result.map(buildApiStarTopupOption);
+}
+
+export async function fetchUniqueStarGift({ slug }: {
+  slug: string;
+}) {
+  const result = await invokeRequest(new GramJs.payments.GetUniqueStarGift({ slug }));
+
+  if (!result) return undefined;
+
+  const gift = buildApiStarGift(result.gift);
+  if (gift.type !== 'starGiftUnique') return undefined;
+  return gift;
+}
+
+export async function fetchStarGiftUpgradePreview({
+  giftId,
+}: {
+  giftId: string;
+}) {
+  const result = await invokeRequest(new GramJs.payments.GetStarGiftUpgradePreview({
+    giftId: BigInt(giftId),
+  }));
+
+  if (!result) {
+    return undefined;
+  }
+
+  return result.sampleAttributes.map(buildApiStarGiftAttribute).filter(Boolean);
+}
+
+export function upgradeGift({
+  inputSavedGift,
+  shouldKeepOriginalDetails,
+}: {
+  inputSavedGift: ApiRequestInputSavedStarGift;
+  shouldKeepOriginalDetails?: true;
+}) {
+  return invokeRequest(new GramJs.payments.UpgradeStarGift({
+    stargift: buildInputSavedStarGift(inputSavedGift),
+    keepOriginalDetails: shouldKeepOriginalDetails,
+  }), {
+    shouldReturnTrue: true,
+  });
+}
+
+export async function fetchStarGiftWithdrawalUrl({
+  inputGift,
+  password,
+}: {
+  inputGift: ApiRequestInputSavedStarGift;
+  password: string;
+}) {
+  try {
+    const passwordCheck = await getPassword(password);
+
+    if (!passwordCheck) {
+      return undefined;
+    }
+
+    if ('error' in passwordCheck) {
+      return passwordCheck;
+    }
+
+    const result = await invokeRequest(new GramJs.payments.GetStarGiftWithdrawalUrl({
+      stargift: buildInputSavedStarGift(inputGift),
+      password: passwordCheck,
+    }), {
+      shouldThrow: true,
+    });
+
+    if (!result) {
+      return undefined;
+    }
+
+    return { url: result.url };
+  } catch (err: unknown) {
+    if (!checkErrorType(err)) return undefined;
+
+    return wrapError(err);
+  }
+
+  return undefined;
 }

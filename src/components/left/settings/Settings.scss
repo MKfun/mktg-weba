@@ -15,6 +15,7 @@
 
   .self-profile .ProfileInfo {
     margin: -0.5rem 0 0.75rem -0.5rem;
+    margin-inline-end: calc(min(var(--scrollbar-width) - 0.5rem, 0px));
   }
 }
 
@@ -241,7 +242,7 @@
         font-size: 1rem;
         line-height: 1rem;
         margin-bottom: 0.25rem;
-        font-weight: 500;
+        font-weight: var(--font-weight-medium);
       }
 
       .contact-phone {

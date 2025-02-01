@@ -10,8 +10,9 @@ import type {
 import type {
   ActiveEmojiInteraction,
   MessageListType,
-} from '../../global/types';
-import type { ThemeKey, ThreadId } from '../../types';
+  ThemeKey,
+  ThreadId,
+} from '../../types';
 import { MAIN_THREAD_ID } from '../../api/types';
 
 import {
@@ -61,7 +62,7 @@ import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import {
-  IS_ANDROID, IS_ELECTRON, IS_IOS, IS_TRANSLATION_SUPPORTED, MASK_IMAGE_DISABLED,
+  IS_ANDROID, IS_ELECTRON, IS_IOS, IS_SAFARI, IS_TRANSLATION_SUPPORTED, MASK_IMAGE_DISABLED,
 } from '../../util/windowEnvironment';
 import calculateMiddleFooterTransforms from './helpers/calculateMiddleFooterTransforms';
 
@@ -79,6 +80,7 @@ import useWindowSize from '../../hooks/window/useWindowSize';
 import usePinnedMessage from './hooks/usePinnedMessage';
 
 import Composer from '../common/Composer';
+import Icon from '../common/icons/Icon';
 import PrivacySettingsNoticeModal from '../common/PrivacySettingsNoticeModal.async';
 import SeenByModal from '../common/SeenByModal.async';
 import UnpinAllMessagesModal from '../common/UnpinAllMessagesModal.async';
@@ -355,11 +357,13 @@ function MiddleColumn({
 
   const handleDragEnter = useLastCallback((e: React.DragEvent<HTMLDivElement>) => {
     const { items } = e.dataTransfer || {};
-    const shouldDrawQuick = items && items.length > 0 && Array.from(items)
+    // In Safari, the e.dataTransfer.items list may be empty during dragenter/dragover events,
+    // preventing the ability to determine file types in advance. More details: https://bugs.webkit.org/show_bug.cgi?id=223517
+    const shouldDrawQuick = IS_SAFARI || (items && items.length > 0 && Array.from(items)
       // Filter unnecessary element for drag and drop images in Firefox (https://github.com/Ajaxy/telegram-tt/issues/49)
       // https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Recommended_drag_types#image
       .filter((item) => item.type !== 'text/uri-list')
-      .every((item) => isImage(item) || isVideo(item));
+      .every((item) => isImage(item) || isVideo(item)));
 
     setDropAreaState(shouldDrawQuick ? DropAreaState.QuickFile : DropAreaState.Document);
   });
@@ -572,7 +576,7 @@ function MiddleColumn({
                       className="composer-button unpin-all-button"
                       onClick={handleOpenUnpinModal}
                     >
-                      <i className="icon icon-unpin" />
+                      <Icon name="unpin" />
                       <span>{lang('Chat.Pinned.UnpinAll', pinnedMessagesCount, 'i')}</span>
                     </Button>
                   </div>

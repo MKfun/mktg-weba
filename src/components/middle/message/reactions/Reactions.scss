@@ -13,6 +13,12 @@
     margin-top: 0.25rem;
   }
 
+  &.is-service {
+    justify-content: center;
+    max-width: 19rem;
+    margin: 0.3125rem auto;
+  }
+
   .own &.is-outside {
     flex-direction: row-reverse;
   }

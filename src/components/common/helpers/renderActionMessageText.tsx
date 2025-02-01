@@ -93,6 +93,15 @@ export function renderActionMessageText(
       .replace('un2', '%action_origin%')
       .replace(/\*\*/g, '');
   }
+  if (translationKey.startsWith('Notification.StarsGift.Upgrade')) {
+    unprocessed = unprocessed
+      .replace('%@', '%action_origin_chat%');
+  }
+  if (translationKey.startsWith('ActionUniqueGiftTransfer')) {
+    unprocessed = unprocessed
+      .replace('un1', '%action_origin%')
+      .replace(/\*\*/g, '');
+  }
   if (translationKey === 'BoostingReceivedPrizeFrom') {
     unprocessed = unprocessed
       .replace('**%s**', '%target_chat%')
@@ -123,6 +132,18 @@ export function renderActionMessageText(
     ) : actionOriginChat ? (
       renderChatContent(oldLang, actionOriginChat, noLinks) || NBSP
     ) : 'User',
+    '',
+  );
+
+  unprocessed = processed.pop() as string;
+  content.push(...processed);
+
+  processed = processPlaceholder(
+    unprocessed,
+    '%action_origin_chat%',
+    actionOriginChat ? (
+      renderChatContent(oldLang, actionOriginChat, noLinks) || NBSP
+    ) : 'Chat',
     '',
   );
 

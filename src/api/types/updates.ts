@@ -1,4 +1,4 @@
-import type { ApiDraft, TabState } from '../../global/types';
+import type { TabState } from '../../global/types';
 import type {
   GroupCallConnectionData,
   GroupCallConnectionState,
@@ -6,7 +6,8 @@ import type {
   VideoRotation,
   VideoState,
 } from '../../lib/secret-sauce';
-import type { ApiPrivacyKey, PrivacyVisibility, ThreadId } from '../../types';
+import type { ThreadId } from '../../types';
+import type { RegularLangFnParameters } from '../../util/localization';
 import type { ApiBotMenuButton } from './bots';
 import type {
   ApiGroupCall, ApiPhoneCall,
@@ -16,6 +17,7 @@ import type {
   ApiChatFolder,
   ApiChatFullInfo,
   ApiChatMember,
+  ApiDraft,
   ApiTypingStatus,
 } from './chats';
 import type {
@@ -35,7 +37,7 @@ import type {
   ApiEmojiInteraction, ApiError, ApiNotifyException, ApiSessionData,
 } from './misc';
 import type { ApiStarsAmount } from './payments';
-import type { LangPackStringValue } from './settings';
+import type { ApiPrivacyKey, LangPackStringValue, PrivacyVisibility } from './settings';
 import type { ApiStealthMode, ApiStory, ApiStorySkipped } from './stories';
 import type {
   ApiEmojiStatus, ApiUser, ApiUserFullInfo, ApiUserStatus,
@@ -83,7 +85,7 @@ export type ApiUpdateSession = {
 
 export type ApiUpdateAuthorizationError = {
   '@type': 'updateAuthorizationError';
-  message: string;
+  errorKey: RegularLangFnParameters;
 };
 
 export type ApiUpdateConnectionState = {
@@ -489,12 +491,7 @@ export type ApiUpdateSavedGifs = {
 
 export type ApiUpdateTwoFaError = {
   '@type': 'updateTwoFaError';
-  message: string;
-};
-
-export type ApiUpdatePasswordError = {
-  '@type': 'updatePasswordError';
-  error: string;
+  messageKey: RegularLangFnParameters;
 };
 
 export type ApiUpdateNotifySettings = {
@@ -817,7 +814,7 @@ export type ApiUpdate = (
   ApiUpdateRecentStickers | ApiUpdateSavedGifs | ApiUpdateNewScheduledMessage | ApiUpdateMoveStickerSetToTop |
   ApiUpdateScheduledMessageSendSucceeded | ApiUpdateScheduledMessage | ApiUpdateStarPaymentStateCompleted |
   ApiUpdateDeleteScheduledMessages | ApiUpdateResetMessages | ApiUpdateMessageTranslations |
-  ApiUpdateTwoFaError | ApiUpdatePasswordError | ApiUpdateTwoFaStateWaitCode | ApiUpdateWebViewResultSent |
+  ApiUpdateTwoFaError | ApiUpdateTwoFaStateWaitCode | ApiUpdateWebViewResultSent |
   ApiUpdateNotifySettings | ApiUpdateNotifyExceptions | ApiUpdatePeerBlocked | ApiUpdatePrivacy |
   ApiUpdateServerTimeOffset | ApiUpdateMessageReactions | ApiUpdateSavedReactionTags |
   ApiUpdateGroupCallParticipants | ApiUpdateGroupCallConnection | ApiUpdateGroupCall | ApiUpdateGroupCallStreams |

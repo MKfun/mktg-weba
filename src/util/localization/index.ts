@@ -10,6 +10,7 @@ import type { LangKey, LangVariable } from '../../types/language';
 import {
   type AdvancedLangFnOptions,
   type AdvancedLangFnOptionsWithPlural,
+  type AdvancedLangFnParameters,
   areAdvancedLangFnOptions,
   isDeletedLangString,
   isPluralLangString,
@@ -18,6 +19,7 @@ import {
   type LangFnOptionsWithPlural,
   type LangFnParameters,
   type LangFormatters,
+  type RegularLangFnParameters,
 } from './types';
 
 import { DEBUG, LANG_PACK } from '../../config';
@@ -318,10 +320,17 @@ function createTranslationFn(): LangFn {
     }
     return processTranslation(key, variables as Record<string, LangVariable>, options);
   });
+  fn.withRegular = (({ key, variables, options }: RegularLangFnParameters) => {
+    return processTranslation(key, variables, options);
+  });
+  fn.withAdvanced = (({ key, variables, options }: AdvancedLangFnParameters) => {
+    return processTranslationAdvanced(key, variables, options);
+  });
   fn.region = (code: string) => formatters?.region.of(code);
   fn.conjunction = (list: string[]) => formatters?.conjunction.format(list) || list.join(', ');
   fn.disjunction = (list: string[]) => formatters?.disjunction.format(list) || list.join(', ');
   fn.number = (value: number) => formatters?.number.format(value) || String(value);
+  fn.languageInfo = language!;
   return fn;
 }
 
@@ -352,7 +361,7 @@ function getString(langKey: LangKey, count: number) {
 
 function processTranslation(
   langKey: LangKey,
-  variables?: Record<string, LangVariable>,
+  variables?: Record<string, LangVariable | RegularLangFnParameters>,
   options?: LangFnOptions | LangFnOptionsWithPlural,
 ): string {
   const cacheKey = `${langKey}-${JSON.stringify(variables)}-${JSON.stringify(options)}`;
@@ -368,6 +377,9 @@ function processTranslation(
   const variableEntries = variables ? Object.entries(variables) : [];
   const finalString = variableEntries.reduce((result, [key, value]) => {
     if (value === undefined) return result;
+    if (typeof value === 'object') { // Allow recursive variables in basic `lang.with`
+      value = processTranslation(value.key, value.variables, value.options);
+    }
 
     const valueAsString = Number.isFinite(value) ? formatters!.number.format(value as number) : String(value);
     return result.replace(`{${key}}`, valueAsString);
@@ -440,4 +452,6 @@ export {
 export type {
   LangFn,
   LangFnParameters,
+  RegularLangFnParameters,
+  AdvancedLangFnParameters,
 };

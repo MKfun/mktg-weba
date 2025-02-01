@@ -6,6 +6,7 @@ import type { DeepLinkMethod, PrivateMessageLink } from './deepLinkParser';
 import { API_CHAT_TYPES, RE_TG_LINK } from '../config';
 import { toChannelId } from '../global/helpers';
 import { tryParseDeepLink } from './deepLinkParser';
+import { IS_BAD_URL_PARSER } from './windowEnvironment';
 
 export const processDeepLink = (url: string): boolean => {
   const actions = getActions();
@@ -16,6 +17,15 @@ export const processDeepLink = (url: string): boolean => {
       case 'privateMessageLink':
         handlePrivateMessageLink(parsedLink, actions);
         return true;
+      case 'publicMessageLink': {
+        actions.openChatByUsername({
+          username: parsedLink.username,
+          threadId: parsedLink.threadId,
+          messageId: parsedLink.messageId,
+          commentId: parsedLink.commentId,
+        });
+        return true;
+      }
       case 'publicUsernameOrBotLink': {
         const choose = parseChooseParameter(parsedLink.choose);
 
@@ -33,6 +43,12 @@ export const processDeepLink = (url: string): boolean => {
         });
         return true;
       }
+      case 'privateChannelLink': {
+        actions.openPrivateChannel({
+          id: parsedLink.channelId,
+        });
+        return true;
+      }
       case 'businessChatLink':
         actions.resolveBusinessChatLink({
           slug: parsedLink.slug,
@@ -44,6 +60,15 @@ export const processDeepLink = (url: string): boolean => {
       case 'premiumMultigiftLink':
         actions.openGiftRecipientPicker();
         return true;
+      case 'chatBoostLink':
+        actions.processBoostParameters({
+          usernameOrId: (parsedLink.username || parsedLink.id)!,
+          isPrivate: Boolean(parsedLink.id),
+        });
+        return true;
+      case 'giftUniqueLink':
+        actions.openUniqueGiftBySlug({ slug: parsedLink.slug });
+        return true;
       default:
         break;
     }
@@ -53,9 +78,11 @@ export const processDeepLink = (url: string): boolean => {
     return false;
   }
 
+  const urlToParse = IS_BAD_URL_PARSER ? url.replace(/^tg:\/\//, 'https://') : url;
+
   const {
     protocol, searchParams, hostname,
-  } = new URL(url);
+  } = new URL(urlToParse);
 
   if (protocol !== 'tg:') return false;
 
@@ -72,7 +99,6 @@ export const processDeepLink = (url: string): boolean => {
     openChatWithDraft,
     checkChatlistInvite,
     openStoryViewerByUsername,
-    processBoostParameters,
     checkGiftCode,
     openStarsBalanceModal,
   } = actions;
@@ -84,7 +110,6 @@ export const processDeepLink = (url: string): boolean => {
         appname, startapp, mode, story, text,
       } = params;
 
-      const hasBoost = params.hasOwnProperty('boost');
       const threadId = Number(thread) || Number(topic) || undefined;
 
       if (domain !== 'telegrampassport') {
@@ -101,8 +126,6 @@ export const processDeepLink = (url: string): boolean => {
             username: domain,
             inviteHash: voicechat || livestream,
           });
-        } else if (hasBoost) {
-          processBoostParameters({ usernameOrId: domain });
         } else if (phone) {
           openChatByPhoneNumber({
             phoneNumber: phone,
@@ -182,14 +205,6 @@ export const processDeepLink = (url: string): boolean => {
       break;
     }
 
-    case 'boost': {
-      const { channel, domain } = params;
-      const isPrivate = Boolean(channel);
-
-      processBoostParameters({ usernameOrId: channel || domain, isPrivate });
-      break;
-    }
-
     case 'giftcode': {
       const { slug } = params;
       checkGiftCode({ slug });
@@ -211,15 +226,10 @@ export function formatShareText(url?: string, text?: string, title?: string): Ap
 function handlePrivateMessageLink(link: PrivateMessageLink, actions: ReturnType<typeof getActions>) {
   const {
     focusMessage,
-    processBoostParameters,
   } = actions;
   const {
-    isBoost, channelId, messageId, threadId,
+    channelId, messageId, threadId,
   } = link;
-  if (isBoost) {
-    processBoostParameters({ usernameOrId: channelId, isPrivate: true });
-    return;
-  }
   focusMessage({
     chatId: toChannelId(channelId),
     threadId,

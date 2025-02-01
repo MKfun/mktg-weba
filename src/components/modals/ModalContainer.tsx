@@ -6,6 +6,7 @@ import type { TabState } from '../../global/types';
 import { selectTabState } from '../../global/selectors';
 import { pick } from '../../util/iteratees';
 
+import VerificationMonetizationModal from '../common/VerificationMonetizationModal.async';
 import WebAppsCloseConfirmationModal from '../main/WebAppsCloseConfirmationModal.async';
 import AboutAdsModal from './aboutAds/AboutAdsModal.async';
 import AttachBotInstallModal from './attachBotInstall/AttachBotInstallModal.async';
@@ -13,11 +14,15 @@ import BoostModal from './boost/BoostModal.async';
 import ChatInviteModal from './chatInvite/ChatInviteModal.async';
 import ChatlistModal from './chatlist/ChatlistModal.async';
 import CollectibleInfoModal from './collectible/CollectibleInfoModal.async';
+import EmojiStatusAccessModal from './emojiStatusAccess/EmojiStatusAccessModal.async';
+import GiftWithdrawModal from './gift/fragment/GiftWithdrawModal.async';
 import PremiumGiftModal from './gift/GiftModal.async';
 import GiftInfoModal from './gift/info/GiftInfoModal.async';
 import GiftRecipientPicker from './gift/recipient/GiftRecipientPicker.async';
+import GiftUpgradeModal from './gift/upgrade/GiftUpgradeModal.async';
 import GiftCodeModal from './giftcode/GiftCodeModal.async';
 import InviteViaLinkModal from './inviteViaLink/InviteViaLinkModal.async';
+import LocationAccessModal from './locationAccess/LocationAccessModal.async';
 import MapModal from './map/MapModal.async';
 import OneTimeMediaModal from './oneTimeMedia/OneTimeMediaModal.async';
 import PaidReactionModal from './paidReaction/PaidReactionModal.async';
@@ -59,7 +64,12 @@ type ModalKey = keyof Pick<TabState,
 'isWebAppsCloseConfirmationModalOpen' |
 'giftInfoModal' |
 'suggestedStatusModal' |
-'aboutAdsModal'
+'emojiStatusAccessModal' |
+'locationAccessModal' |
+'aboutAdsModal' |
+'giftUpgradeModal' |
+'monetizationVerificationModal' |
+'giftWithdrawModal'
 >;
 
 type StateProps = {
@@ -99,7 +109,12 @@ const MODALS: ModalRegistry = {
   isWebAppsCloseConfirmationModalOpen: WebAppsCloseConfirmationModal,
   giftInfoModal: GiftInfoModal,
   suggestedStatusModal: SuggestedStatusModal,
+  emojiStatusAccessModal: EmojiStatusAccessModal,
+  locationAccessModal: LocationAccessModal,
   aboutAdsModal: AboutAdsModal,
+  giftUpgradeModal: GiftUpgradeModal,
+  monetizationVerificationModal: VerificationMonetizationModal,
+  giftWithdrawModal: GiftWithdrawModal,
 };
 const MODAL_KEYS = Object.keys(MODALS) as ModalKey[];
 const MODAL_ENTRIES = Object.entries(MODALS) as Entries<ModalRegistry>;

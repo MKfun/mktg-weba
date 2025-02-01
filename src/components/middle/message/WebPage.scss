@@ -34,6 +34,14 @@
     border-radius: 0.25rem;
   }
 
+  &--unique-sticker {
+    position: relative;
+    width: 7.5rem;
+    height: 7.5rem;
+    overflow: hidden;
+    margin-block: 0.5rem;
+  }
+
   &--stickers {
     color: var(--accent-color);
     border-radius: 0 !important;
@@ -50,6 +58,7 @@
 
     &.interactive {
       cursor: var(--custom-cursor, pointer);
+
       &:active {
         background-color: var(--background-active-color);
       }
@@ -59,6 +68,7 @@
   .WebPage--content {
     position: relative;
 
+    &.is-gift,
     &.is-story {
       display: flex;
       flex-direction: column-reverse;
@@ -84,12 +94,27 @@
     }
   }
 
+  .with-gift &--quick-button {
+    border-top: inherit;
+    margin-top: 0.0625rem;
+    margin-bottom: -0.125rem;
+  }
+
   &-text {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     align-items: flex-start;
     position: relative;
+
+    &_interactive {
+      cursor: var(--custom-cursor, pointer);
+      transition: opacity 0.15s;
+
+      &:hover {
+        opacity: 0.75;
+      }
+    }
   }
 
   .media-inner {

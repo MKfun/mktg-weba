@@ -2,7 +2,6 @@ import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
 import { generateRandomBytes, readBigIntFromBuffer } from '../../../lib/gramjs/Helpers';
 
-import type { ApiInputPrivacyRules, ApiPrivacyKey } from '../../../types';
 import type {
   ApiBotApp,
   ApiChatAdminRights,
@@ -11,6 +10,7 @@ import type {
   ApiChatReactions,
   ApiFormattedText,
   ApiGroupCall,
+  ApiInputPrivacyRules,
   ApiInputReplyInfo,
   ApiInputStorePaymentPurpose,
   ApiMessageEntity,
@@ -19,9 +19,11 @@ import type {
   ApiPhoto,
   ApiPoll,
   ApiPremiumGiftCodeOption,
+  ApiPrivacyKey,
   ApiReactionWithPaid,
   ApiReportReason,
   ApiRequestInputInvoice,
+  ApiRequestInputSavedStarGift,
   ApiSendMessageAction,
   ApiSticker,
   ApiStory,
@@ -35,7 +37,7 @@ import {
 
 import { CHANNEL_ID_LENGTH, DEFAULT_STATUS_ICON_ID } from '../../../config';
 import { pick } from '../../../util/iteratees';
-import { deserializeBytes } from '../helpers';
+import { deserializeBytes } from '../helpers/misc';
 import localDb from '../localDb';
 
 const LEGACY_CHANNEL_ID_MIN_LENGTH = 13; // Example: -1234567890
@@ -242,6 +244,7 @@ export function buildFilterFromApiFolder(folder: ApiChatFolder): GramJs.DialogFi
     pinnedChatIds,
     includedChatIds,
     excludedChatIds,
+    noTitleAnimations,
   } = folder;
 
   const pinnedPeers = pinnedChatIds
@@ -259,17 +262,18 @@ export function buildFilterFromApiFolder(folder: ApiChatFolder): GramJs.DialogFi
   if (folder.isChatList) {
     return new GramJs.DialogFilterChatlist({
       id: folder.id,
-      title: folder.title,
+      title: buildInputTextWithEntities(folder.title),
       emoticon: emoticon || undefined,
       pinnedPeers,
       includePeers,
       hasMyInvites: folder.hasMyInvites,
+      titleNoanimate: noTitleAnimations,
     });
   }
 
   return new GramJs.DialogFilter({
     id: folder.id,
-    title: folder.title,
+    title: buildInputTextWithEntities(folder.title),
     emoticon: emoticon || undefined,
     contacts: contacts || undefined,
     nonContacts: nonContacts || undefined,
@@ -282,6 +286,7 @@ export function buildFilterFromApiFolder(folder: ApiChatFolder): GramJs.DialogFi
     pinnedPeers,
     includePeers,
     excludePeers,
+    titleNoanimate: noTitleAnimations,
   });
 }
 
@@ -644,13 +649,14 @@ export function buildInputInvoice(invoice: ApiRequestInputInvoice) {
 
     case 'stargift': {
       const {
-        user, shouldHideName, giftId, message,
+        peer, shouldHideName, giftId, message, shouldUpgrade,
       } = invoice;
       return new GramJs.InputInvoiceStarGift({
-        userId: buildInputEntity(user.id, user.accessHash) as GramJs.InputUser,
+        peer: buildInputPeer(peer.id, peer.accessHash),
         hideName: shouldHideName || undefined,
         giftId: BigInt(giftId),
         message: message && buildInputTextWithEntities(message),
+        includeUpgrade: shouldUpgrade,
       });
     }
 
@@ -671,6 +677,13 @@ export function buildInputInvoice(invoice: ApiRequestInputInvoice) {
     case 'chatInviteSubscription': {
       return new GramJs.InputInvoiceChatInviteSubscription({
         hash: invoice.hash,
+      });
+    }
+
+    case 'stargiftUpgrade': {
+      return new GramJs.InputInvoiceStarGiftUpgrade({
+        stargift: buildInputSavedStarGift(invoice.inputSavedGift),
+        keepOriginalDetails: invoice.shouldKeepOriginalDetails,
       });
     }
 
@@ -725,15 +738,9 @@ export function buildInputEmojiStatus(emojiStatusId: string, expires?: number) {
     return new GramJs.EmojiStatusEmpty();
   }
 
-  if (expires) {
-    return new GramJs.EmojiStatusUntil({
-      documentId: BigInt(emojiStatusId),
-      until: expires,
-    });
-  }
-
   return new GramJs.EmojiStatus({
     documentId: BigInt(emojiStatusId),
+    until: expires,
   });
 }
 
@@ -837,4 +844,17 @@ export function buildInputPrivacyRules(
   }
 
   return privacyRules;
+}
+
+export function buildInputSavedStarGift(inputGift: ApiRequestInputSavedStarGift) {
+  if (inputGift.type === 'user') {
+    return new GramJs.InputSavedStarGiftUser({
+      msgId: inputGift.messageId,
+    });
+  }
+
+  return new GramJs.InputSavedStarGiftChat({
+    peer: buildInputPeer(inputGift.chat.id, inputGift.chat.accessHash),
+    savedId: BigInt(inputGift.savedId),
+  });
 }

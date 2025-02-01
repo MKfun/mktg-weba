@@ -1,6 +1,12 @@
 import type {
-  ApiMissingInvitedUser, ApiUser, ApiUserCommonChats, ApiUserFullInfo, ApiUserStatus,
+  ApiMissingInvitedUser,
+  ApiSavedStarGift,
+  ApiUser,
+  ApiUserCommonChats,
+  ApiUserFullInfo,
+  ApiUserStatus,
 } from '../../api/types';
+import type { BotAppPermissions } from '../../types';
 import type { GlobalState, TabArgs, TabState } from '../types';
 
 import { areDeepEqual } from '../../util/areDeepEqual';
@@ -294,4 +300,49 @@ export function updateMissingInvitedUsers<T extends GlobalState>(
       chatId,
     },
   }, tabId);
+}
+
+export function updateBotAppPermissions<T extends GlobalState>(
+  global: T,
+  botId: string,
+  permissions: BotAppPermissions,
+): T {
+  const { botAppPermissionsById } = global.users;
+
+  return {
+    ...global,
+    users: {
+      ...global.users,
+      botAppPermissionsById: {
+        ...botAppPermissionsById,
+        [botId]: {
+          ...botAppPermissionsById[botId],
+          ...permissions,
+        },
+      },
+    },
+  };
+}
+
+export function replacePeerSavedGifts<T extends GlobalState>(
+  global: T,
+  peerId: string,
+  gifts: ApiSavedStarGift[],
+  nextOffset?: string,
+): T {
+  global = {
+    ...global,
+    peers: {
+      ...global.peers,
+      giftsById: {
+        ...global.peers.giftsById,
+        [peerId]: {
+          gifts,
+          nextOffset,
+        },
+      },
+    },
+  };
+
+  return global;
 }

@@ -1,12 +1,19 @@
 import { Api as GramJs } from '../../../lib/gramjs';
 
-import type { ApiPrivacyKey } from '../../../types';
 import type {
   ApiChatLink,
-  ApiCollectionInfo,
-  ApiConfig, ApiCountry, ApiLanguage, ApiOldLangString,
+  ApiCollectibleInfo,
+  ApiConfig,
+  ApiCountry,
+  ApiLanguage,
+  ApiOldLangString,
   ApiPeerColors,
-  ApiSession, ApiTimezone, ApiUrlAuthResult, ApiWallpaper, ApiWebSession,
+  ApiPrivacyKey,
+  ApiSession,
+  ApiTimezone,
+  ApiUrlAuthResult,
+  ApiWallpaper,
+  ApiWebSession,
   LangPackStringValue,
 } from '../../types';
 
@@ -15,7 +22,7 @@ import {
   buildCollectionByCallback, omit, omitUndefined, pick,
 } from '../../../util/iteratees';
 import { getServerTime } from '../../../util/serverTime';
-import { addUserToLocalDb } from '../helpers';
+import { addUserToLocalDb } from '../helpers/localDb';
 import { omitVirtualClassFields } from './helpers';
 import { buildApiDocument, buildMessageTextContent } from './messageContent';
 import { buildApiPeerId, getApiChatIdFromMtpPeer } from './peers';
@@ -221,14 +228,21 @@ export function buildApiUrlAuthResult(result: GramJs.TypeUrlAuthResult): ApiUrlA
 }
 
 export function buildApiConfig(config: GramJs.Config): ApiConfig {
-  const defaultReaction = config.reactionsDefault && buildApiReaction(config.reactionsDefault);
+  const {
+    testMode, expires, gifSearchUsername, chatSizeMax, autologinToken, reactionsDefault,
+    messageLengthMax, editTimeLimit, forwardedCountMax,
+  } = config;
+  const defaultReaction = reactionsDefault && buildApiReaction(reactionsDefault);
   return {
-    isTestServer: config.testMode,
-    expiresAt: config.expires,
-    gifSearchUsername: config.gifSearchUsername,
+    isTestServer: testMode,
+    expiresAt: expires,
+    gifSearchUsername,
     defaultReaction,
-    maxGroupSize: config.chatSizeMax,
-    autologinToken: config.autologinToken,
+    maxGroupSize: chatSizeMax,
+    autologinToken,
+    maxMessageLength: messageLengthMax,
+    editTimeLimit,
+    maxForwardedCount: forwardedCountMax,
   };
 }
 
@@ -332,7 +346,7 @@ export function buildApiChatLink(data: GramJs.account.ResolvedBusinessChatLinks)
   };
 }
 
-export function buildApiCollectibleInfo(info: GramJs.fragment.TypeCollectibleInfo): ApiCollectionInfo {
+export function buildApiCollectibleInfo(info: GramJs.fragment.TypeCollectibleInfo): ApiCollectibleInfo {
   const {
     amount,
     currency,

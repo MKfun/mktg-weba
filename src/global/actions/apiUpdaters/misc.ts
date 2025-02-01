@@ -1,6 +1,7 @@
 import type { ActionReturnType } from '../../types';
 import { PaymentStep } from '../../../types';
 
+import { SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
 import { applyLangPackDifference, requestLangPackDifference } from '../../../util/localization';
 import { addActionHandler, setGlobal } from '../../index';
 import {
@@ -19,7 +20,8 @@ import {
   updateStealthMode,
   updateThreadInfos,
 } from '../../reducers';
-import { selectPeerStories, selectPeerStory } from '../../selectors';
+import { updateTabState } from '../../reducers/tabs';
+import { selectPeerStories, selectPeerStory, selectTabState } from '../../selectors';
 
 addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
   switch (update['@type']) {
@@ -90,7 +92,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
 
     case 'updateMoveStickerSetToTop': {
       const oldOrder = update.isCustomEmoji ? global.customEmojis.added.setIds : global.stickers.added.setIds;
-      if (!oldOrder) return global;
+      if (!oldOrder?.some((id) => id === update.id)) return global;
       const newOrder = [update.id, ...oldOrder.filter((id) => id !== update.id)];
       actions.reorderStickerSets({ order: newOrder, isCustomEmoji: update.isCustomEmoji });
       break;
@@ -205,6 +207,35 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
 
     case 'updateLangPack': {
       applyLangPackDifference(update.version, update.strings, update.keysToRemove);
+      break;
+    }
+
+    case 'newMessage': {
+      const actionStarGift = update.message.content?.action?.starGift;
+      if (!update.message.isOutgoing && update.message.chatId !== SERVICE_NOTIFICATIONS_USER_ID) return undefined;
+      if (actionStarGift?.type !== 'starGiftUnique') return undefined;
+
+      Object.values(global.byTabId).forEach(({ id: tabId }) => {
+        const tabState = selectTabState(global, tabId);
+        if (tabState.isWaitingForStarGiftUpgrade) {
+          actions.openUniqueGiftBySlug({
+            slug: actionStarGift.gift.slug,
+            tabId,
+          });
+
+          actions.showNotification({
+            title: { key: 'GiftUpgradedTitle' },
+            message: { key: 'GiftUpgradedDescription' },
+            tabId,
+          });
+
+          actions.requestConfetti({ withStars: true, tabId });
+
+          global = updateTabState(global, {
+            isWaitingForStarGiftUpgrade: undefined,
+          }, tabId);
+        }
+      });
     }
   }
 

@@ -1,8 +1,8 @@
 import { Api as GramJs } from '../../../lib/gramjs';
 
-import type { ApiInputPrivacyRules } from '../../../types';
 import type {
   ApiError,
+  ApiInputPrivacyRules,
   ApiPeer,
   ApiPeerStories,
   ApiReaction,
@@ -26,7 +26,8 @@ import {
   buildInputPrivacyRules,
   buildInputReaction,
 } from '../gramjsBuilders';
-import { addStoryToLocalDb, deserializeBytes } from '../helpers';
+import { addStoryToLocalDb } from '../helpers/localDb';
+import { deserializeBytes } from '../helpers/misc';
 import { invokeRequest } from './client';
 
 export async function fetchAllStories({

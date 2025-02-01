@@ -142,7 +142,7 @@ export interface LangPair {
   'LoginQRLogin': undefined;
   'LoginQRTitle': undefined;
   'LoginQRHelp1': undefined;
-  'LoginQR2Help2': undefined;
+  'LoginQRHelp2': undefined;
   'LoginQRHelp3': undefined;
   'LoginQRCancel': undefined;
   'YourName': undefined;
@@ -218,6 +218,7 @@ export interface LangPair {
   'SavedMessagesInfo': undefined;
   'BlockedListNotFound': undefined;
   'TextCopied': undefined;
+  'WalletAddressCopied': undefined;
   'Copy': undefined;
   'DeleteAndStop': undefined;
   'DeleteForAll': undefined;
@@ -344,6 +345,8 @@ export interface LangPair {
   'AuthSessionsViewBrowser': undefined;
   'AuthSessionsViewLocationInfo': undefined;
   'AuthSessionsLogOutApplications': undefined;
+  'AuthKeepSignedIn': undefined;
+  'AuthTitle': undefined;
   'ClearOtherWebSessionsHelp': undefined;
   'AreYouSureWebSessions': undefined;
   'AutoDownloadMaxFileSize': undefined;
@@ -369,10 +372,17 @@ export interface LangPair {
   'SettingsSendEnter': undefined;
   'SettingsSendCmdenter': undefined;
   'SettingsSendCtrlenter': undefined;
+  'SettingsSendEnterDescription': undefined;
+  'SettingsSendPlusEnterDescription': undefined;
+  'SettingsTimeFormat': undefined;
+  'SettingsTimeFormat12': undefined;
+  'SettingsTimeFormat24': undefined;
+  'SettingsKeyboard': undefined;
+  'SettingsTray': undefined;
+  'SettingsOfflineNotificationUnsupported': undefined;
   'TextSize': undefined;
   'ChatBackground': undefined;
   'Theme': undefined;
-  'VoiceOverKeyboard': undefined;
   'AccDescrStickers': undefined;
   'DoubleTapSetting': undefined;
   'SuggestStickers': undefined;
@@ -408,6 +418,8 @@ export interface LangPair {
   'PasscodeControllerChangeTitle': undefined;
   'FilterNew': undefined;
   'FilterEdit': undefined;
+  'FilterDelete': undefined;
+  'FilterShare': undefined;
   'AutoDeleteConfirm': undefined;
   'LogOutTitle': undefined;
   'AccDescrGoBack': undefined;
@@ -542,10 +554,53 @@ export interface LangPair {
   'PollsSolutionTitle': undefined;
   'CreatePollExplanationInfo': undefined;
   'VoipGroupPersonalAccount': undefined;
+  'MenuStickers': undefined;
+  'MenuAnimations': undefined;
+  'MenuStars': undefined;
+  'MenuSendGift': undefined;
+  'MenuTelegramFaq': undefined;
+  'MenuPrivacyPolicy': undefined;
+  'MenuAskText': undefined;
+  'SettingsPerformanceSliderTitle': undefined;
+  'SettingsPerformanceSliderSubtitle': undefined;
+  'SettingsPerformanceSliderLow': undefined;
+  'SettingsPerformanceSliderMedium': undefined;
+  'SettingsPerformanceSliderCustom': undefined;
+  'SettingsPerformanceSliderHigh': undefined;
+  'SettingsPerformanceInterfaceAnimations': undefined;
+  'SettingsPerformanceStickers': undefined;
+  'SettingsPerformanceMediaAutoplay': undefined;
+  'SettingsPerformancePageTransitions': undefined;
+  'SettingsPerformanceSending': undefined;
+  'SettingsPerformanceMediaViewer': undefined;
+  'SettingsPerformanceComposer': undefined;
+  'SettingsPerformanceContextAnimation': undefined;
+  'SettingsPerformanceContextBlur': undefined;
+  'SettingsPerformanceRightColumn': undefined;
+  'SettingsPerformanceThanos': undefined;
+  'SettingsPerformanceAnimatedEmoji': undefined;
+  'SettingsPerformanceLoopStickers': undefined;
+  'SettingsPerformanceReactionEffects': undefined;
+  'SettingsPerformanceStickerEffects': undefined;
+  'SettingsPerformanceAutoplayGif': undefined;
+  'SettingsPerformanceAutoplayVideo': undefined;
   'FavoriteStickers': undefined;
   'PremiumStickers': undefined;
   'GroupStickers': undefined;
   'ErrorSendRestrictedStickersAll': undefined;
+  'ErrorPhoneNumberInvalid': undefined;
+  'ErrorCodeInvalid': undefined;
+  'ErrorEmailCodeInvalid': undefined;
+  'ErrorIncorrectPassword': undefined;
+  'ErrorPasswordFlood': undefined;
+  'ErrorPhoneBanned': undefined;
+  'ErrorUnexpected': undefined;
+  'ErrorEmailUnconfirmed': undefined;
+  'ErrorEmailHashExpired': undefined;
+  'ErrorNewSaltInvalid': undefined;
+  'ErrorPasswordChanged': undefined;
+  'ErrorPasswordMissing': undefined;
+  'ErrorUnspecified': undefined;
   'NoStickers': undefined;
   'ClearRecentEmoji': undefined;
   'TextFormatAddLinkTitle': undefined;
@@ -625,6 +680,10 @@ export interface LangPair {
   'ContextCopySelectedItems': undefined;
   'EditAdminGroupDeleteMessages': undefined;
   'Reminders': undefined;
+  'MessageMetaEdited': undefined;
+  'MessageMetaApproximate': undefined;
+  'MessageMetaImported': undefined;
+  'ImportedInfo': undefined;
   'ScheduledMessagesEmptyPlaceholder': undefined;
   'ConversationCloudStorageInfoTitle': undefined;
   'ConversationClousStorageInfoDescription1': undefined;
@@ -850,6 +909,7 @@ export interface LangPair {
   'StickerPackErrorNotFound': undefined;
   'ContactsPhoneNumberNotRegistred': undefined;
   'NoUsernameFound': undefined;
+  'PrivateChannelInaccessible': undefined;
   'HiddenName': undefined;
   'ChannelPersmissionDeniedSendMessagesForever': undefined;
   'ChannelPersmissionDeniedSendMessagesDefaultRestrictedText': undefined;
@@ -987,7 +1047,6 @@ export interface LangPair {
   'SettingsAnimationsHigh': undefined;
   'Settings12HourFormat': undefined;
   'Settings24HourFormat': undefined;
-  'SettingsSendEnterDescription': undefined;
   'SettingsSendCtrlEnterDescription': undefined;
   'AriaMoreButton': undefined;
   'RecoveryEmailCode': undefined;
@@ -1087,7 +1146,6 @@ export interface LangPair {
   'HideCaption': undefined;
   'ChangeRecipient': undefined;
   'DragToSortAria': undefined;
-  'SettingsTimeFormat': undefined;
   'MenuReportBug': undefined;
   'MenuBetaChangelog': undefined;
   'MenuSwitchToK': undefined;
@@ -1105,44 +1163,71 @@ export interface LangPair {
   'GiftPremiumDescriptionLinkCaption': undefined;
   'GiftPremiumDescriptionLink': undefined;
   'StarsGiftHeader': undefined;
+  'StarsGiftHeaderSelf': undefined;
+  'StarGiftDescriptionSelf': undefined;
   'GiftLimited': undefined;
   'GiftSoldOut': undefined;
   'GiftMessagePlaceholder': undefined;
   'GiftHideMyName': undefined;
+  'GiftHideNameDescriptionChannel': undefined;
   'GiftInfoSent': undefined;
   'GiftInfoReceived': undefined;
   'GiftInfoTitle': undefined;
+  'GiftInfoDescriptionFreeUpgrade': undefined;
+  'GiftInfoDescriptionUpgraded': undefined;
   'GiftInfoFrom': undefined;
   'GiftInfoDate': undefined;
   'GiftInfoValue': undefined;
-  'GiftInfoMakeVisible': undefined;
-  'GiftInfoMakeInvisible': undefined;
   'GiftInfoConvertTitle': undefined;
   'GiftInfoConvertDescription2': undefined;
-  'GiftInfoSavedView': undefined;
-  'GiftInfoHidden': undefined;
+  'GiftInfoSavedHide': undefined;
+  'GiftInfoSavedShow': undefined;
   'GiftInfoAvailability': undefined;
   'GiftInfoFirstSale': undefined;
   'GiftInfoLastSale': undefined;
   'GiftInfoSoldOutTitle': undefined;
   'GiftInfoSoldOutDescription': undefined;
   'GiftInfoSenderHidden': undefined;
+  'GiftInfoOwner': undefined;
+  'GiftAttributeModel': undefined;
+  'GiftAttributeBackdrop': undefined;
+  'GiftAttributeSymbol': undefined;
+  'GiftInfoStatus': undefined;
+  'GiftInfoStatusNonUnique': undefined;
+  'GiftInfoViewUpgraded': undefined;
+  'GiftInfoUpgradeBadge': undefined;
+  'GiftInfoUpgradeForFree': undefined;
+  'GiftInfoWithdraw': undefined;
+  'GiftUpgradeUniqueTitle': undefined;
+  'GiftUpgradeUniqueDescription': undefined;
+  'GiftUpgradeTransferableTitle': undefined;
+  'GiftUpgradeTransferableDescription': undefined;
+  'GiftUpgradeTradeableTitle': undefined;
+  'GiftUpgradeTradeableDescription': undefined;
+  'GiftUpgradeTitle': undefined;
+  'GiftUpgradeTextOwn': undefined;
+  'GiftUpgradeKeepDetails': undefined;
+  'GiftUpgradedTitle': undefined;
+  'GiftUpgradedDescription': undefined;
+  'GiftMakeUniqueAcc': undefined;
+  'GiftMakeUniqueLink': undefined;
+  'GiftWithdrawTitle': undefined;
+  'GiftWithdrawSubmit': undefined;
   'AllGiftsCategory': undefined;
   'LimitedGiftsCategory': undefined;
+  'StockGiftsCategory': undefined;
   'PremiumGiftDescription': undefined;
   'StarsReactionLinkText': undefined;
   'StarsReactionLink': undefined;
   'ActionStarGiftDisplaying': undefined;
+  'ActionStarGiftChannelDisplaying': undefined;
+  'ActionStarGiftDescriptionUpgrade': undefined;
+  'ActionStarGiftUpgraded': undefined;
+  'ActionStarGiftUnpack': undefined;
   'GiftTo': undefined;
   'GiftFrom': undefined;
   'ReceivedGift': undefined;
   'SentGift': undefined;
-  'StarGiftInfoLinkCaption': undefined;
-  'StarGiftDisplayOnMyPage': undefined;
-  'StarGiftConvertTo': undefined;
-  'StarGiftHideFromMyPage': undefined;
-  'StarGiftSenderPrivacyNote': undefined;
-  'StarGiftAvailability': undefined;
   'StarsSubscribeInfoLinkText': undefined;
   'StarsSubscribeInfoLink': undefined;
   'StarsBalance': undefined;
@@ -1167,6 +1252,63 @@ export interface LangPair {
   'PrivacyGiftsInfo': undefined;
   'PrivacyValueBots': undefined;
   'CustomShareGiftsInfo': undefined;
+  'AllChatsSearchContext': undefined;
+  'PrivateChatsSearchContext': undefined;
+  'GroupChatsSearchContext': undefined;
+  'ChannelsSearchContext': undefined;
+  'FolderLinkSubtitleNew': undefined;
+  'FolderLinkSubtitleAlready': undefined;
+  'FolderLinkAddFolder': undefined;
+  'SearchTabChats': undefined;
+  'SearchTabChannels': undefined;
+  'SearchTabApps': undefined;
+  'SearchTabMedia': undefined;
+  'SearchTabLinks': undefined;
+  'SearchTabFiles': undefined;
+  'SearchTabMusic': undefined;
+  'SearchTabVoice': undefined;
+  'SearchTabMessages': undefined;
+  'StarsTransactionsAll': undefined;
+  'StarsTransactionsIncoming': undefined;
+  'StarsTransactionsOutgoing': undefined;
+  'ProfileTabSavedDialogs': undefined;
+  'ProfileTabStories': undefined;
+  'ProfileTabStoriesArchive': undefined;
+  'ProfileTabGifts': undefined;
+  'ProfileTabSubscribers': undefined;
+  'ProfileTabMembers': undefined;
+  'ProfileTabBotPreview': undefined;
+  'ProfileTabMedia': undefined;
+  'ProfileTabFiles': undefined;
+  'ProfileTabLinks': undefined;
+  'ProfileTabMusic': undefined;
+  'ProfileTabVoice': undefined;
+  'ProfileTabSharedGroups': undefined;
+  'ProfileTabSimilarChannels': undefined;
+  'ProfileTabSimilarBots': undefined;
+  'ActionUnsupportedTitle': undefined;
+  'ActionUnsupportedDescription': undefined;
+  'UnlockMoreSimilarBots': undefined;
+  'GiftWasNotFound': undefined;
+  'ViewButtonRequestJoin': undefined;
+  'ViewButtonMessage': undefined;
+  'ViewButtonBot': undefined;
+  'ViewButtonVoiceChat': undefined;
+  'ViewButtonVoiceChatChannel': undefined;
+  'ViewButtonGroup': undefined;
+  'ViewButtonChannel': undefined;
+  'ViewButtonUser': undefined;
+  'ViewButtonBotApp': undefined;
+  'ViewChatList': undefined;
+  'ViewButtonStory': undefined;
+  'ViewButtonBoost': undefined;
+  'ViewButtonStickerset': undefined;
+  'ViewButtonGiftUnique': undefined;
+  'AuthContinueOnThisLanguage': undefined;
+  'Share': undefined;
+  'CheckPasswordTitle': undefined;
+  'CheckPasswordPlaceholder': undefined;
+  'CheckPasswordDescription': undefined;
 }
 
 export interface LangPairWithVariables<V extends unknown = LangVariable> {
@@ -1332,6 +1474,15 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   'SlowModeHint': {
     'time': V;
   };
+  'ErrorFloodTime': {
+    'time': V;
+  };
+  'ErrorPasswordFresh': {
+    'time': V;
+  };
+  'ErrorUnexpectedMessage': {
+    'error': V;
+  };
   'EditedDate': {
     'date': V;
   };
@@ -1343,6 +1494,12 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
     'duration': V;
   };
   'MessageScheduledOn': {
+    'date': V;
+  };
+  'MessageTooltipEditedDate': {
+    'date': V;
+  };
+  'MessageTooltipForwardedDate': {
     'date': V;
   };
   'EmptyGroupInfoLine1': {
@@ -1488,6 +1645,9 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   'StarGiftDescription': {
     'user': V;
   };
+  'StarGiftDescriptionChannel': {
+    'peer': V;
+  };
   'GiftDiscount': {
     'percent': V;
   };
@@ -1498,18 +1658,76 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
     'count': V;
   };
   'GiftHideNameDescription': {
-    'profile': V;
     'receiver': V;
   };
   'GiftSend': {
     'amount': V;
   };
-  'GiftInfoConvertDescription1': {
-    'user': V;
+  'GiftInfoPeerDescriptionFreeUpgradeOut': {
+    'peer': V;
+  };
+  'GiftInfoPeerConvertDescription': {
+    'peer': V;
     'amount': V;
   };
   'GiftInfoSaved': {
     'link': V;
+  };
+  'GiftInfoHidden': {
+    'link': V;
+  };
+  'GiftInfoChannelSaved': {
+    'link': V;
+  };
+  'GiftInfoChannelHidden': {
+    'link': V;
+  };
+  'GiftInfoIssued': {
+    'issued': V;
+    'total': V;
+  };
+  'GiftInfoCollectible': {
+    'number': V;
+  };
+  'GiftInfoPeerOriginalInfo': {
+    'peer': V;
+    'date': V;
+  };
+  'GiftInfoPeerOriginalInfoSender': {
+    'sender': V;
+    'peer': V;
+    'date': V;
+  };
+  'GiftInfoPeerOriginalInfoText': {
+    'peer': V;
+    'date': V;
+    'text': V;
+  };
+  'GiftInfoPeerOriginalInfoTextSender': {
+    'sender': V;
+    'peer': V;
+    'date': V;
+    'text': V;
+  };
+  'GiftPeerUpgradeText': {
+    'peer': V;
+  };
+  'GiftUpgradeButton': {
+    'amount': V;
+  };
+  'GiftMakeUnique': {
+    'stars': V;
+  };
+  'GiftMakeUniqueDescription': {
+    'user': V;
+    'link': V;
+  };
+  'GiftMakeUniqueDescriptionChannel': {
+    'peer': V;
+    'link': V;
+  };
+  'GiftWithdrawDescription': {
+    'gift': V;
   };
   'StarsAmount': {
     'amount': V;
@@ -1523,41 +1741,24 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   'StarsReactionTerms': {
     'link': V;
   };
-  'PrizeCredits': {
-    'count': V;
-  };
-  'ActionStarGiftTitle': {
-    'user': V;
+  'ActionStarGiftPeerTitle': {
+    'peer': V;
     'count': V;
   };
   'ActionStarGiftOutTitle': {
     'count': V;
   };
-  'ActionStarGiftOutDescription': {
-    'user': V;
-    'count': V;
-  };
-  'ActionStarGiftDescription': {
-    'count': V;
-  };
-  'StarGiftInfoDescriptionInbound': {
-    'count': V;
-    'link': V;
-  };
-  'StarGiftInfoDescriptionOutgoing': {
-    'user': V;
-    'count': V;
-    'link': V;
-  };
-  'StarGiftAvailabilityValue': {
-    'number': V;
-    'total': V;
+  'ActionStarGiftPeerOutDescriptionUpgrade': {
+    'peer': V;
   };
   'StarsSubscribeInfo': {
     'link': V;
   };
   'StarsPerMonth': {
     'amount': V;
+  };
+  'EmojiStatusAccessText': {
+    'name': V;
   };
   'BotSuggestedStatusFor': {
     'bot': V;
@@ -1572,6 +1773,32 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   };
   'StarsSubscribeBotButtonMonth': {
     'amount': V;
+  };
+  'SearchContextCaption': {
+    'type': V;
+  };
+  'FolderLinkTitleDescription': {
+    'folder': V;
+    'chats': V;
+  };
+  'FolderLinkSubtitleAdd': {
+    'chats': V;
+    'title': V;
+  };
+  'FolderLinkNotificationDeletedTitle': {
+    'title': V;
+  };
+  'FolderLinkNotificationAddedTitle': {
+    'title': V;
+  };
+  'FolderLinkNotificationUpdatedTitle': {
+    'title': V;
+  };
+  'LocationPermissionText': {
+    'name': V;
+  };
+  'MoreSimilarBotsText': {
+    'count': V;
   };
 }
 
@@ -1654,6 +1881,15 @@ export interface LangPairPluralWithVariables<V extends unknown = LangVariable> {
   'Messages': {
     'count': V;
   };
+  'MessageTooltipForwards': {
+    'count': V;
+  };
+  'MessageTooltipViews': {
+    'count': V;
+  };
+  'MessageTooltipReplies': {
+    'count': V;
+  };
   'Hours': {
     'count': V;
   };
@@ -1717,15 +1953,18 @@ export interface LangPairPluralWithVariables<V extends unknown = LangVariable> {
   'GiftInfoDescription': {
     'amount': V;
   };
-  'GiftInfoDescriptionOut': {
-    'user': V;
+  'GiftInfoPeerDescriptionOut': {
+    'peer': V;
+    'amount': V;
+  };
+  'GiftInfoDescriptionUpgrade': {
     'amount': V;
   };
   'GiftInfoDescriptionConverted': {
     'amount': V;
   };
-  'GiftInfoDescriptionOutConverted': {
-    'user': V;
+  'GiftInfoPeerDescriptionOutConverted': {
+    'peer': V;
     'amount': V;
   };
   'GiftInfoConvert': {
@@ -1738,11 +1977,24 @@ export interface LangPairPluralWithVariables<V extends unknown = LangVariable> {
     'count': V;
     'total': V;
   };
+  'GiftWithdrawWait': {
+    'days': V;
+  };
   'StarsAmountText': {
     'amount': V;
   };
   'MiniAppsMoreTabs': {
     'botName': V;
+    'count': V;
+  };
+  'PrizeCredits2': {
+    'count': V;
+  };
+  'ActionStarGiftPeerOutDescription': {
+    'peer': V;
+    'count': V;
+  };
+  'ActionStarGiftDescription2': {
     'count': V;
   };
   'StarsSubscribeText': {
@@ -1753,6 +2005,21 @@ export interface LangPairPluralWithVariables<V extends unknown = LangVariable> {
     'name': V;
     'bot': V;
     'amount': V;
+  };
+  'FolderLinkTitleDescriptionChats': {
+    'count': V;
+  };
+  'FolderLinkSubtitleAddCount': {
+    'count': V;
+  };
+  'FolderLinkNotificationDeletedSubtitle': {
+    'count': V;
+  };
+  'FolderLinkNotificationAddedSubtitle': {
+    'count': V;
+  };
+  'FolderLinkNotificationUpdatedSubtitle': {
+    'count': V;
   };
 }
 export type RegularLangKey = keyof LangPair;
