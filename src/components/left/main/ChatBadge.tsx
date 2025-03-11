@@ -15,6 +15,7 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
 
 import AnimatedCounter from '../../common/AnimatedCounter';
+import Icon from '../../common/icons/Icon';
 import Button from '../../ui/Button';
 import ShowTransition from '../../ui/ShowTransition';
 
@@ -103,20 +104,19 @@ const ChatBadge: FC<OwnProps> = ({
       botId: chat.id,
       peerId: chat.id,
       theme,
-      shouldMarkBotTrusted: true,
     });
   });
 
   function renderContent() {
     const unreadReactionsElement = unreadReactionsCount && (
       <div className={buildClassName('ChatBadge reaction', shouldBeMuted && 'muted')}>
-        <i className="icon icon-heart" />
+        <Icon name="heart" />
       </div>
     );
 
     const unreadMentionsElement = unreadMentionsCount && (
       <div className="ChatBadge mention">
-        <i className="icon icon-mention" />
+        <Icon name="mention" />
       </div>
     );
 
@@ -132,7 +132,7 @@ const ChatBadge: FC<OwnProps> = ({
 
     const pinnedElement = isPinned && (
       <div className={className}>
-        <i className="icon icon-pinned-chat" />
+        <Icon name="pinned-chat" />
       </div>
     );
 

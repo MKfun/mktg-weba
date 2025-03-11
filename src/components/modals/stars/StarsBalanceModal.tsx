@@ -5,8 +5,9 @@ import { getActions, getGlobal, withGlobal } from '../../../global';
 
 import type { ApiStarTopupOption } from '../../../api/types';
 import type { GlobalState, TabState } from '../../../global/types';
+import type { RegularLangKey } from '../../../types/language';
 
-import { getChatTitle, getUserFullName } from '../../../global/helpers';
+import { getChatTitle, getPeerTitle, getUserFullName } from '../../../global/helpers';
 import { selectChat, selectIsPremiumPurchaseBlocked, selectUser } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import renderText from '../../common/helpers/renderText';
@@ -17,7 +18,6 @@ import useLastCallback from '../../../hooks/useLastCallback';
 import useOldLang from '../../../hooks/useOldLang';
 
 import Icon from '../../common/icons/Icon';
-import StarIcon from '../../common/icons/StarIcon';
 import SafeLink from '../../common/SafeLink';
 import Button from '../../ui/Button';
 import InfiniteScroll from '../../ui/InfiniteScroll';
@@ -35,10 +35,10 @@ import StarLogo from '../../../assets/icons/StarLogo.svg';
 import StarsBackground from '../../../assets/stars-bg.png';
 
 const TRANSACTION_TYPES = ['all', 'inbound', 'outbound'] as const;
-const TRANSACTION_TABS: TabWithProperties[] = [
-  { title: 'StarsTransactionsAll' },
-  { title: 'StarsTransactionsIncoming' },
-  { title: 'StarsTransactionsOutgoing' },
+const TRANSACTION_TABS_KEYS: RegularLangKey[] = [
+  'StarsTransactionsAll',
+  'StarsTransactionsIncoming',
+  'StarsTransactionsOutgoing',
 ];
 const TRANSACTION_ITEM_CLASS = 'StarsTransactionItem';
 const SUBSCRIPTION_PURPOSE = 'subs';
@@ -50,10 +50,11 @@ export type OwnProps = {
 type StateProps = {
   starsBalanceState?: GlobalState['stars'];
   canBuyPremium?: boolean;
+  shouldForceHeight?: boolean;
 };
 
 const StarsBalanceModal = ({
-  modal, starsBalanceState, canBuyPremium,
+  modal, starsBalanceState, canBuyPremium, shouldForceHeight,
 }: OwnProps & StateProps) => {
   const {
     closeStarsBalanceModal, loadStarsTransactions, loadStarsSubscriptions, openStarsGiftingPickerModal, openInvoice,
@@ -98,9 +99,9 @@ const StarsBalanceModal = ({
     }
 
     if (originGift) {
-      const user = selectUser(global, originGift.userId);
-      if (!user) return undefined;
-      return oldLang('StarsNeededTextGift', getUserFullName(user));
+      const peer = selectUser(global, originGift.peerId);
+      if (!peer) return undefined;
+      return oldLang('StarsNeededTextGift', getPeerTitle(lang, peer));
     }
 
     if (topup?.purpose === SUBSCRIPTION_PURPOSE) {
@@ -108,10 +109,16 @@ const StarsBalanceModal = ({
     }
 
     return undefined;
-  }, [originReaction, originStarsPayment, originGift, topup?.purpose, oldLang]);
+  }, [originReaction, originStarsPayment, originGift, topup?.purpose, lang, oldLang]);
 
   const shouldShowItems = Boolean(history?.all?.transactions.length && !shouldOpenOnBuy);
   const shouldSuggestGifting = !shouldOpenOnBuy;
+
+  const transactionTabs: TabWithProperties[] = useMemo(() => {
+    return TRANSACTION_TABS_KEYS.map((key) => ({
+      title: lang(key),
+    }));
+  }, [lang]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -172,7 +179,11 @@ const StarsBalanceModal = ({
   });
 
   return (
-    <Modal className={styles.root} isOpen={isOpen} onClose={closeStarsBalanceModal}>
+    <Modal
+      className={buildClassName(styles.root, !shouldForceHeight && styles.minimal)}
+      isOpen={isOpen}
+      onClose={closeStarsBalanceModal}
+    >
       <div className={buildClassName(styles.main, 'custom-scroll')} onScroll={handleScroll}>
         <Button
           round
@@ -213,11 +224,11 @@ const StarsBalanceModal = ({
           )}
           {canBuyPremium && !areBuyOptionsShown && shouldSuggestGifting && (
             <Button
-              className={buildClassName(styles.starButton, 'settings-main-menu-star')}
-              color="translucent"
+              isText
+              noForcedUpperCase
+              className={styles.starButton}
               onClick={openStarsGiftingPickerModalHandler}
             >
-              <StarIcon className="icon" type="gold" size="big" />
               {oldLang('TelegramStarsGift')}
             </Button>
           )}
@@ -266,7 +277,7 @@ const StarsBalanceModal = ({
               <Transition
                 name={lang.isRtl ? 'slideOptimizedRtl' : 'slideOptimized'}
                 activeKey={selectedTabIndex}
-                renderCount={TRANSACTION_TABS.length}
+                renderCount={TRANSACTION_TABS_KEYS.length}
                 shouldRestoreHeight
                 className={styles.transition}
               >
@@ -277,6 +288,7 @@ const StarsBalanceModal = ({
                   itemSelector={`.${TRANSACTION_ITEM_CLASS}`}
                   className={styles.transactions}
                   noFastList
+                  noScrollRestoreOnTop
                 >
                   {history?.[TRANSACTION_TYPES[selectedTabIndex]]?.transactions.map((transaction) => (
                     <StarsTransactionItem
@@ -292,7 +304,7 @@ const StarsBalanceModal = ({
               className={styles.tabs}
               tabClassName={styles.tab}
               activeTab={selectedTabIndex}
-              tabs={TRANSACTION_TABS}
+              tabs={transactionTabs}
               onSwitchTab={setSelectedTabIndex}
             />
           </div>
@@ -304,7 +316,10 @@ const StarsBalanceModal = ({
 
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
+    const shouldForceHeight = Boolean(global.stars?.history?.all?.transactions.length);
+
     return {
+      shouldForceHeight,
       starsBalanceState: global.stars,
       canBuyPremium: !selectIsPremiumPurchaseBlocked(global),
     };

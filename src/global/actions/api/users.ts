@@ -2,6 +2,7 @@ import type { ApiUser } from '../../../api/types';
 import type { ActionReturnType } from '../../types';
 import { ManagementProgress } from '../../../types';
 
+import { BOT_VERIFICATION_PEERS_LIMIT } from '../../../config';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { buildCollectionByKey, unique } from '../../../util/iteratees';
 import * as langProvider from '../../../util/oldLangProvider';
@@ -9,11 +10,7 @@ import { throttle } from '../../../util/schedulers';
 import { getServerTime } from '../../../util/serverTime';
 import { callApi } from '../../../api/gramjs';
 import { isUserBot, isUserId } from '../../helpers';
-import {
-  addActionHandler,
-  getGlobal,
-  setGlobal,
-} from '../../index';
+import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   addUserStatuses,
   closeNewContactDialog,
@@ -392,7 +389,7 @@ addActionHandler('reportSpam', (global, actions, payload): ActionReturnType => {
 
 addActionHandler('setEmojiStatus', async (global, actions, payload): Promise<void> => {
   const {
-    emojiStatusId, referrerWebAppKey, expires, tabId = getCurrentTabId(),
+    emojiStatus, referrerWebAppKey, tabId = getCurrentTabId(),
   } = payload;
 
   const isCurrentUserPremium = selectIsCurrentUserPremium(global);
@@ -414,7 +411,7 @@ addActionHandler('setEmojiStatus', async (global, actions, payload): Promise<voi
     return;
   }
 
-  const result = await callApi('updateEmojiStatus', emojiStatusId, expires);
+  const result = await callApi('updateEmojiStatus', emojiStatus);
 
   if (referrerWebAppKey) {
     if (!result) {
@@ -442,7 +439,7 @@ addActionHandler('setEmojiStatus', async (global, actions, payload): Promise<voi
       message: {
         key: 'BotSuggestedStatusUpdated',
       },
-      customEmojiIconId: emojiStatusId,
+      customEmojiIconId: emojiStatus.documentId,
       tabId,
     });
   }
@@ -506,5 +503,22 @@ addActionHandler('openSuggestedStatusModal', async (global, actions, payload): P
       botId,
     },
   }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('markBotVerificationInfoShown', (global, actions, payload): ActionReturnType => {
+  const { peerId } = payload;
+
+  const currentPeerIds = global.settings.botVerificationShownPeerIds;
+  const newPeerIds = unique([peerId, ...currentPeerIds]).slice(0, BOT_VERIFICATION_PEERS_LIMIT);
+
+  global = {
+    ...global,
+    settings: {
+      ...global.settings,
+      botVerificationShownPeerIds: newPeerIds,
+    },
+  };
+
   setGlobal(global);
 });

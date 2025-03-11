@@ -14,11 +14,12 @@ import { buildStarsTransactionCustomPeer, formatStarsTransactionAmount } from '.
 import {
   selectCanPlayAnimatedEmojis,
   selectGiftStickerForStars,
-  selectPeer, selectStarGiftSticker,
+  selectPeer,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { copyTextToClipboard } from '../../../../util/clipboard';
 import { formatDateTimeToString } from '../../../../util/dates/dateFormat';
+import { getGiftAttributes, getStickerFromGift } from '../../../common/helpers/gifts';
 import { getTransactionTitle, isNegativeStarsAmount } from '../helpers/transaction';
 
 import useLang from '../../../../hooks/useLang';
@@ -32,6 +33,7 @@ import Icon from '../../../common/icons/Icon';
 import StarIcon from '../../../common/icons/StarIcon';
 import SafeLink from '../../../common/SafeLink';
 import TableInfoModal, { type TableData } from '../../common/TableInfoModal';
+import UniqueGiftHeader from '../../gift/UniqueGiftHeader';
 import PaidMediaThumb from './PaidMediaThumb';
 
 import styles from './StarsTransactionModal.module.scss';
@@ -73,8 +75,14 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
     }
 
     const {
-      giveawayPostId, photo, stars,
+      giveawayPostId, photo, stars, isGiftUpgrade, starGift,
     } = transaction;
+
+    const gift = transaction?.starGift;
+    const isUniqueGift = gift?.type === 'starGiftUnique';
+    const sticker = transaction?.starGift ? getStickerFromGift(transaction.starGift) : topSticker;
+
+    const giftAttributes = isUniqueGift ? getGiftAttributes(gift) : undefined;
 
     const customPeer = (transaction.peer && transaction.peer.type !== 'peer'
         && buildStarsTransactionCustomPeer(transaction.peer)) || undefined;
@@ -84,7 +92,7 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
 
     const title = getTransactionTitle(oldLang, transaction);
 
-    const messageLink = peer && transaction.messageId
+    const messageLink = peer && transaction.messageId && !isGiftUpgrade
       ? getMessageLink(peer, undefined, transaction.messageId) : undefined;
     const giveawayMessageLink = peer && giveawayPostId && getMessageLink(peer, undefined, giveawayPostId);
 
@@ -98,13 +106,27 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
       : areAllVideos ? oldLang('Stars.Transfer.Videos', mediaAmount)
         : oldLang('Media', mediaAmount);
 
-    const description = transaction.description || (media ? mediaText : undefined);
+    const description = transaction.description
+      || (isGiftUpgrade && starGift?.type === 'starGiftUnique' ? starGift.title : undefined)
+      || (media ? mediaText : undefined);
 
-    const shouldDisplayAvatar = !media && !topSticker;
+    const shouldDisplayAvatar = !media && !sticker;
     const avatarPeer = !photo ? (peer || customPeer) : undefined;
 
-    const header = (
-      <div className={buildClassName(styles.header, styles.starsHeader)}>
+    const uniqueGiftHeader = isUniqueGift && (
+      <div className={buildClassName(styles.header, styles.uniqueGift)}>
+        <UniqueGiftHeader
+          backdropAttribute={giftAttributes!.backdrop!}
+          patternAttribute={giftAttributes!.pattern!}
+          modelAttribute={giftAttributes!.model!}
+          title={gift.title}
+          subtitle={lang('GiftInfoCollectible', { number: gift.number })}
+        />
+      </div>
+    );
+
+    const regularHeader = (
+      <div className={styles.header}>
         {media && (
           <PaidMediaThumb
             className={buildClassName(styles.mediaPreview, 'transaction-media-preview')}
@@ -112,24 +134,25 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
             onClick={handleOpenMedia}
           />
         )}
-        {!media && topSticker && (
+        {!media && sticker && (
           <AnimatedIconFromSticker
             key={transaction.id}
-            sticker={topSticker}
+            sticker={sticker}
             play={canPlayAnimatedEmojis}
             noLoop
-            nonInteractive
           />
         )}
         {shouldDisplayAvatar && (
-          <Avatar peer={avatarPeer} webPhoto={photo} size="jumbo" />
+          <Avatar peer={avatarPeer} webPhoto={photo} size="giant" />
         )}
-        <img
-          className={buildClassName(styles.starsBackground)}
-          src={StarsBackground}
-          alt=""
-          draggable={false}
-        />
+        {!sticker && (
+          <img
+            className={buildClassName(styles.starsBackground)}
+            src={StarsBackground}
+            alt=""
+            draggable={false}
+          />
+        )}
         {title && <h1 className={styles.title}>{title}</h1>}
         <p className={styles.description}>{description}</p>
         <p className={styles.amount}>
@@ -152,8 +175,17 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
       ]);
     }
 
+    if (isGiftUpgrade) {
+      tableData.push([
+        oldLang('StarGiftReason'),
+        oldLang('StarGiftReasonUpgrade'),
+      ]);
+    }
+
     let peerLabel;
-    if (isNegativeStarsAmount(stars) || transaction.isMyGift) {
+    if (isGiftUpgrade) {
+      peerLabel = oldLang('Stars.Transaction.GiftFrom');
+    } else if (isNegativeStarsAmount(stars) || transaction.isMyGift) {
       peerLabel = oldLang('Stars.Transaction.To');
     } else if (transaction.starRefCommision) {
       peerLabel = oldLang('StarsTransaction.StarRefReason.Miniapp');
@@ -216,11 +248,11 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
     );
 
     return {
-      header,
+      header: isUniqueGift ? uniqueGiftHeader : regularHeader,
       tableData,
       footer,
     };
-  }, [transaction, oldLang, lang, peer, topSticker, canPlayAnimatedEmojis]);
+  }, [transaction, oldLang, lang, peer, canPlayAnimatedEmojis, topSticker]);
 
   const prevModalData = usePrevious(starModalData);
   const renderingModalData = prevModalData || starModalData;
@@ -229,6 +261,7 @@ const StarsTransactionModal: FC<OwnProps & StateProps> = ({
     <TableInfoModal
       isOpen={Boolean(transaction)}
       className={styles.modal}
+      hasBackdrop={transaction?.starGift?.type === 'starGiftUnique'}
       header={renderingModalData?.header}
       tableData={renderingModalData?.tableData}
       footer={renderingModalData?.footer}
@@ -246,13 +279,10 @@ export default memo(withGlobal<OwnProps>(
     const starCount = modal?.transaction.stars;
     const starsGiftSticker = modal?.transaction.isGift && selectGiftStickerForStars(global, starCount?.amount);
 
-    const starGiftStickerId = modal?.transaction.starGift?.stickerId;
-    const starGiftSticker = starGiftStickerId && selectStarGiftSticker(global, starGiftStickerId);
-
     return {
       peer,
       canPlayAnimatedEmojis: selectCanPlayAnimatedEmojis(global),
-      topSticker: starGiftSticker || starsGiftSticker,
+      topSticker: starsGiftSticker,
     };
   },
 )(StarsTransactionModal));

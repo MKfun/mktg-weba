@@ -1,4 +1,5 @@
-import { Api as GramJs, connection } from '../../../lib/gramjs';
+import { Api as GramJs, type Update } from '../../../lib/gramjs';
+import { UpdateConnectionState, UpdateServerTimeOffset } from '../../../lib/gramjs/network';
 
 import type { GroupCallConnectionData } from '../../../lib/secret-sauce';
 import type {
@@ -54,6 +55,7 @@ import {
 import { buildApiStarsAmount } from '../apiBuilders/payments';
 import { buildApiEmojiStatus, buildApiPeerId, getApiChatIdFromMtpPeer } from '../apiBuilders/peers';
 import {
+  buildApiPaidReactionPrivacy,
   buildApiReaction,
   buildMessageReactions,
 } from '../apiBuilders/reactions';
@@ -70,44 +72,42 @@ import {
 import {
   addPhotoToLocalDb,
   addStoryToLocalDb,
+} from '../helpers/localDb';
+import {
   isChatFolder,
   log,
   resolveMessageApiChatId,
   serializeBytes,
-} from '../helpers';
+} from '../helpers/misc';
 import localDb from '../localDb';
 import { scheduleMutedChatUpdate, scheduleMutedTopicUpdate } from '../scheduleUnmute';
 import { sendApiUpdate } from './apiUpdateEmitter';
 import { processMessageAndUpdateThreadInfo } from './entityProcessor';
 
 import LocalUpdatePremiumFloodWait from './UpdatePremiumFloodWait';
-import { LocalUpdateChannelPts, LocalUpdatePts, type UpdatePts } from './UpdatePts';
-
-export type Update = (
-  (GramJs.TypeUpdate | GramJs.TypeUpdates) & { _entities?: (GramJs.TypeUser | GramJs.TypeChat)[] }
-) | typeof connection.UpdateConnectionState | UpdatePts | LocalUpdatePremiumFloodWait;
+import { LocalUpdateChannelPts, LocalUpdatePts } from './UpdatePts';
 
 const sentMessageIds = new Set();
 
 export function updater(update: Update) {
-  if (update instanceof connection.UpdateServerTimeOffset) {
+  if (update instanceof UpdateServerTimeOffset) {
     setServerTimeOffset(update.timeOffset);
 
     sendApiUpdate({
       '@type': 'updateServerTimeOffset',
       serverTimeOffset: update.timeOffset,
     });
-  } else if (update instanceof connection.UpdateConnectionState) {
+  } else if (update instanceof UpdateConnectionState) {
     let connectionState: ApiUpdateConnectionStateType;
 
     switch (update.state) {
-      case connection.UpdateConnectionState.disconnected:
+      case UpdateConnectionState.disconnected:
         connectionState = 'connectionStateConnecting';
         break;
-      case connection.UpdateConnectionState.broken:
+      case UpdateConnectionState.broken:
         connectionState = 'connectionStateBroken';
         break;
-      case connection.UpdateConnectionState.connected:
+      case UpdateConnectionState.connected:
       default:
         connectionState = 'connectionStateReady';
         break;
@@ -467,6 +467,13 @@ export function updater(update: Update) {
       chatId: buildApiPeerId(update.channelId, 'channel'),
       id: update.id,
       message: { viewsCount: update.views },
+    });
+  } else if (update instanceof GramJs.UpdateChannelMessageForwards) {
+    sendApiUpdate({
+      '@type': 'updateMessage',
+      chatId: buildApiPeerId(update.channelId, 'channel'),
+      id: update.id,
+      message: { forwardsCount: update.forwards },
     });
 
     // Chats
@@ -1065,7 +1072,7 @@ export function updater(update: Update) {
   } else if (update instanceof GramJs.UpdatePaidReactionPrivacy) {
     sendApiUpdate({
       '@type': 'updatePaidReactionPrivacy',
-      isPrivate: update.private,
+      private: buildApiPaidReactionPrivacy(update.private),
     });
   } else if (update instanceof GramJs.UpdateLangPackTooLong) {
     sendApiUpdate({

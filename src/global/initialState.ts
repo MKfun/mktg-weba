@@ -5,6 +5,7 @@ import { NewChatMembersProgress } from '../types';
 import {
   ANIMATION_LEVEL_DEFAULT,
   DARK_THEME_PATTERN_COLOR,
+  DEFAULT_GIFT_PROFILE_FILTER_OPTIONS,
   DEFAULT_MESSAGE_TEXT_SIZE_PX,
   DEFAULT_PATTERN_COLOR,
   DEFAULT_PLAYBACK_RATE,
@@ -69,6 +70,7 @@ export const INITIAL_PERFORMANCE_STATE_MIN: PerformanceType = {
 };
 
 export const INITIAL_GLOBAL_STATE: GlobalState = {
+  cacheVersion: 2,
   isInited: true,
   attachMenu: { bots: {} },
   passcode: {},
@@ -102,7 +104,11 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     fullInfoById: {},
     previewMediaByBotId: {},
     commonChatsById: {},
-    giftsById: {},
+    botAppPermissionsById: {},
+  },
+
+  peers: {
+    profilePhotosById: {},
   },
 
   chats: {
@@ -114,6 +120,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     byId: {},
     fullInfoById: {},
     similarChannelsById: {},
+    similarBotsById: {},
     topicsInfoById: {},
     loadingParameters: {
       active: {},
@@ -126,6 +133,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     byChatId: {},
     sponsoredByChatId: {},
     pollById: {},
+    playbackByChatId: {},
   },
 
   stories: {
@@ -179,11 +187,6 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     hash: {},
   },
   availableEffectById: {},
-  starGiftsById: {},
-  starGiftCategoriesByName: {
-    all: [],
-    limited: [],
-  },
 
   stickers: {
     setsById: {},
@@ -206,9 +209,6 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     effect: {
       stickers: [],
       emojis: [],
-    },
-    starGifts: {
-      stickers: {},
     },
     forEmoji: {},
   },
@@ -298,6 +298,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     performance: INITIAL_PERFORMANCE_STATE_MAX,
     privacy: {},
     notifyExceptions: {},
+    botVerificationShownPeerIds: [],
   },
 
   serviceNotifications: [],
@@ -314,9 +315,6 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     isMinimized: false,
     isHidden: false,
   },
-
-  profilePhotosById: {},
-  monetizationInfo: {},
 };
 
 export const INITIAL_TAB_STATE: TabState = {
@@ -367,6 +365,13 @@ export const INITIAL_TAB_STATE: TabState = {
 
   management: {
     byChatId: {},
+  },
+
+  savedGifts: {
+    filter: {
+      ...DEFAULT_GIFT_PROFILE_FILTER_OPTIONS,
+    },
+    giftsByPeerId: {},
   },
 
   storyViewer: {

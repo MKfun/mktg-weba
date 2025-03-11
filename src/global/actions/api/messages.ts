@@ -1,6 +1,8 @@
 import type {
   ApiAttachment,
   ApiChat,
+  ApiChatType,
+  ApiDraft,
   ApiError,
   ApiInputMessageReplyInfo,
   ApiInputReplyInfo,
@@ -19,10 +21,10 @@ import type {
 import type { MessageKey } from '../../../util/keys/messageKey';
 import type { RequiredGlobalActions } from '../../index';
 import type {
-  ActionReturnType, ApiDraft, GlobalState, TabArgs, WebPageMediaSize,
+  ActionReturnType, GlobalState, TabArgs,
 } from '../../types';
 import { MAIN_THREAD_ID, MESSAGE_DELETED } from '../../../api/types';
-import { LoadMoreDirection, type ThreadId } from '../../../types';
+import { LoadMoreDirection, type ThreadId, type WebPageMediaSize } from '../../../types';
 
 import {
   GIF_MIME_TYPE,
@@ -35,9 +37,9 @@ import {
   SUPPORTED_PHOTO_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
 } from '../../../config';
+import { ensureProtocol, isMixedScriptUrl } from '../../../util/browser/url';
 import { copyTextToClipboardFromPromise } from '../../../util/clipboard';
 import { isDeepLink } from '../../../util/deepLinkParser';
-import { ensureProtocol } from '../../../util/ensureProtocol';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import {
   areSortedArraysIntersecting,
@@ -61,6 +63,7 @@ import {
   isMessageLocal,
   isServiceNotificationMessage,
   isUserBot,
+  splitMessagesForForwarding,
 } from '../../helpers';
 import { isApiPeerUser } from '../../helpers/peers';
 import {
@@ -98,6 +101,7 @@ import {
 } from '../../reducers';
 import { updateTabState } from '../../reducers/tabs';
 import {
+  selectCanForwardMessage,
   selectChat,
   selectChatFullInfo,
   selectChatLastMessageId,
@@ -757,6 +761,16 @@ addActionHandler('deleteMessages', (global, actions, payload): ActionReturnType 
   }
 });
 
+addActionHandler('deleteParticipantHistory', (global, actions, payload): ActionReturnType => {
+  const {
+    chatId, peerId,
+  } = payload;
+  const chat = selectChat(global, chatId)!;
+  const peer = selectPeer(global, peerId)!;
+
+  void callApi('deleteParticipantHistory', { chat, peer });
+});
+
 addActionHandler('deleteScheduledMessages', (global, actions, payload): ActionReturnType => {
   const { messageIds, tabId = getCurrentTabId() } = payload;
   const currentMessageList = selectCurrentMessageList(global, tabId);
@@ -1145,23 +1159,29 @@ addActionHandler('forwardMessages', (global, actions, payload): ActionReturnType
   const lastMessageId = selectChatLastMessageId(global, toChat.id);
 
   const [realMessages, serviceMessages] = partition(messages, (m) => !isServiceNotificationMessage(m));
-  if (realMessages.length) {
+  const forwardableRealMessages = realMessages.filter((message) => selectCanForwardMessage(global, message));
+  if (forwardableRealMessages.length) {
+    const messageBatches = global.config?.maxForwardedCount
+      ? splitMessagesForForwarding(forwardableRealMessages, global.config.maxForwardedCount)
+      : [forwardableRealMessages];
     (async () => {
       await rafPromise(); // Wait one frame for any previous `sendMessage` to be processed
-      callApi('forwardMessages', {
-        fromChat,
-        toChat,
-        toThreadId,
-        messages: realMessages,
-        isSilent,
-        scheduledAt,
-        sendAs,
-        withMyScore,
-        noAuthors,
-        noCaptions,
-        isCurrentUserPremium,
-        wasDrafted: Boolean(draft),
-        lastMessageId,
+      messageBatches.forEach((batch) => {
+        callApi('forwardMessages', {
+          fromChat,
+          toChat,
+          toThreadId,
+          messages: batch,
+          isSilent,
+          scheduledAt,
+          sendAs,
+          withMyScore,
+          noAuthors,
+          noCaptions,
+          isCurrentUserPremium,
+          wasDrafted: Boolean(draft),
+          lastMessageId,
+        });
       });
     })();
   }
@@ -1627,7 +1647,30 @@ addActionHandler('loadSendAs', async (global, actions, payload): Promise<void> =
   }
 
   global = getGlobal();
-  global = updateChat(global, chatId, { sendAsPeerIds: result.sendAs });
+  global = updateChat(global, chatId, { sendAsPeerIds: result });
+  setGlobal(global);
+});
+
+addActionHandler('loadSendPaidReactionsAs', async (global, actions, payload): Promise<void> => {
+  const { chatId } = payload;
+  const chat = selectChat(global, chatId);
+  if (!chat) {
+    return;
+  }
+
+  const result = await callApi('fetchSendAs', { chat, isForPaidReactions: true });
+  if (!result) {
+    global = getGlobal();
+    global = updateChat(global, chatId, {
+      sendPaidReactionsAsPeerIds: [],
+    });
+    setGlobal(global);
+
+    return;
+  }
+
+  global = getGlobal();
+  global = updateChat(global, chatId, { sendPaidReactionsAsPeerIds: result });
   setGlobal(global);
 });
 
@@ -1823,6 +1866,8 @@ addActionHandler('openUrl', (global, actions, payload): ActionReturnType => {
     url, shouldSkipModal, ignoreDeepLinks, tabId = getCurrentTabId(),
   } = payload;
   const urlWithProtocol = ensureProtocol(url)!;
+  const parsedUrl = new URL(urlWithProtocol);
+  const isMixedScript = isMixedScriptUrl(urlWithProtocol);
 
   if (!ignoreDeepLinks && isDeepLink(urlWithProtocol)) {
     actions.closeStoryViewer({ tabId });
@@ -1834,8 +1879,6 @@ addActionHandler('openUrl', (global, actions, payload): ActionReturnType => {
 
   const { appConfig, config } = global;
   if (appConfig) {
-    const parsedUrl = new URL(urlWithProtocol);
-
     if (config?.autologinToken && appConfig.autologinDomains.includes(parsedUrl.hostname)) {
       parsedUrl.searchParams.set(AUTOLOGIN_TOKEN_KEY, config.autologinToken);
       window.open(parsedUrl.href, '_blank', 'noopener');
@@ -1853,9 +1896,9 @@ addActionHandler('openUrl', (global, actions, payload): ActionReturnType => {
   const shouldDisplayModal = !urlWithProtocol.match(RE_TELEGRAM_LINK) && !shouldSkipModal;
 
   if (shouldDisplayModal) {
-    actions.toggleSafeLinkModal({ url: urlWithProtocol, tabId });
+    actions.toggleSafeLinkModal({ url: isMixedScript ? parsedUrl.toString() : urlWithProtocol, tabId });
   } else {
-    window.open(urlWithProtocol, '_blank', 'noopener');
+    window.open(parsedUrl, '_blank', 'noopener');
   }
 });
 
@@ -2273,6 +2316,84 @@ addActionHandler('copyMessageLink', async (global, actions, payload): Promise<vo
   await copyTextToClipboardFromPromise(
     callApiExportMessageLinkPromise, showLinkCopiedNotification, showErrorOccurredNotification,
   );
+});
+
+const MESSAGES_TO_REPORT_DELIVERY = new Map<string, number[]>();
+let reportDeliveryTimeout: number | undefined;
+addActionHandler('reportMessageDelivery', (global, actions, payload): ActionReturnType => {
+  const { chatId, messageId } = payload;
+  const currentIds = MESSAGES_TO_REPORT_DELIVERY.get(chatId) || [];
+  currentIds.push(messageId);
+  MESSAGES_TO_REPORT_DELIVERY.set(chatId, currentIds);
+
+  if (!reportDeliveryTimeout) {
+    // Slightly unsafe in the multitab environment, but there is no better way to do it now.
+    // Not critical if user manages to close the tab in a show window before the report is sent.
+    reportDeliveryTimeout = window.setTimeout(() => {
+      reportDeliveryTimeout = undefined;
+
+      MESSAGES_TO_REPORT_DELIVERY.forEach((messageIds, cId) => {
+        const chat = selectChat(global, cId);
+        if (!chat) return;
+
+        callApi('reportMessagesDelivery', { chat, messageIds });
+      });
+      MESSAGES_TO_REPORT_DELIVERY.clear();
+    }, 500);
+  }
+});
+
+addActionHandler('openPreparedInlineMessageModal', async (global, actions, payload): Promise<void> => {
+  const {
+    botId, messageId, webAppKey, tabId = getCurrentTabId(),
+  } = payload;
+
+  const bot = selectUser(global, botId);
+  if (!bot) return;
+
+  const result = await callApi('fetchPreparedInlineMessage', {
+    bot,
+    id: messageId,
+  });
+  if (!result) {
+    actions.sendWebAppEvent({
+      webAppKey,
+      event: {
+        eventType: 'prepared_message_failed',
+        eventData: { error: 'MESSAGE_EXPIRED' },
+      },
+      tabId,
+    });
+    return;
+  }
+
+  global = getGlobal();
+  global = updateTabState(global, {
+    preparedMessageModal: {
+      message: result,
+      webAppKey,
+      botId,
+    },
+  }, tabId);
+  setGlobal(global);
+});
+
+addActionHandler('openSharePreparedMessageModal', (global, actions, payload): ActionReturnType => {
+  const {
+    webAppKey, message, tabId = getCurrentTabId(),
+  } = payload;
+
+  const supportedFilters = message.peerTypes?.filter((type): type is ApiChatType => type !== 'self');
+
+  global = getGlobal();
+  global = updateTabState(global, {
+    sharePreparedMessageModal: {
+      webAppKey,
+      filter: supportedFilters,
+      message,
+    },
+  }, tabId);
+  setGlobal(global);
 });
 
 function countSortedIds(ids: number[], from: number, to: number) {

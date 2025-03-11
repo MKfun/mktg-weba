@@ -6,6 +6,7 @@ import type { TabState } from '../../global/types';
 import { selectTabState } from '../../global/selectors';
 import { pick } from '../../util/iteratees';
 
+import VerificationMonetizationModal from '../common/VerificationMonetizationModal.async';
 import WebAppsCloseConfirmationModal from '../main/WebAppsCloseConfirmationModal.async';
 import AboutAdsModal from './aboutAds/AboutAdsModal.async';
 import AttachBotInstallModal from './attachBotInstall/AttachBotInstallModal.async';
@@ -13,16 +14,24 @@ import BoostModal from './boost/BoostModal.async';
 import ChatInviteModal from './chatInvite/ChatInviteModal.async';
 import ChatlistModal from './chatlist/ChatlistModal.async';
 import CollectibleInfoModal from './collectible/CollectibleInfoModal.async';
+import EmojiStatusAccessModal from './emojiStatusAccess/EmojiStatusAccessModal.async';
 import PremiumGiftModal from './gift/GiftModal.async';
 import GiftInfoModal from './gift/info/GiftInfoModal.async';
 import GiftRecipientPicker from './gift/recipient/GiftRecipientPicker.async';
+import GiftStatusInfoModal from './gift/status/GiftStatusInfoModal.async';
+import GiftTransferModal from './gift/transfer/GiftTransferModal.async';
+import GiftUpgradeModal from './gift/upgrade/GiftUpgradeModal.async';
+import GiftWithdrawModal from './gift/withdraw/GiftWithdrawModal.async';
 import GiftCodeModal from './giftcode/GiftCodeModal.async';
 import InviteViaLinkModal from './inviteViaLink/InviteViaLinkModal.async';
+import LocationAccessModal from './locationAccess/LocationAccessModal.async';
 import MapModal from './map/MapModal.async';
 import OneTimeMediaModal from './oneTimeMedia/OneTimeMediaModal.async';
 import PaidReactionModal from './paidReaction/PaidReactionModal.async';
+import PreparedMessageModal from './preparedMessage/PreparedMessageModal.async';
 import ReportAdModal from './reportAd/ReportAdModal.async';
 import ReportModal from './reportModal/ReportModal.async';
+import SharePreparedMessageModal from './sharePreparedMessage/SharePreparedMessageModal.async';
 import StarsGiftModal from './stars/gift/StarsGiftModal.async';
 import StarsBalanceModal from './stars/StarsBalanceModal.async';
 import StarsPaymentModal from './stars/StarsPaymentModal.async';
@@ -59,7 +68,16 @@ type ModalKey = keyof Pick<TabState,
 'isWebAppsCloseConfirmationModalOpen' |
 'giftInfoModal' |
 'suggestedStatusModal' |
-'aboutAdsModal'
+'emojiStatusAccessModal' |
+'locationAccessModal' |
+'aboutAdsModal' |
+'giftUpgradeModal' |
+'monetizationVerificationModal' |
+'giftWithdrawModal' |
+'preparedMessageModal' |
+'sharePreparedMessageModal' |
+'giftStatusInfoModal' |
+'giftTransferModal'
 >;
 
 type StateProps = {
@@ -99,7 +117,16 @@ const MODALS: ModalRegistry = {
   isWebAppsCloseConfirmationModalOpen: WebAppsCloseConfirmationModal,
   giftInfoModal: GiftInfoModal,
   suggestedStatusModal: SuggestedStatusModal,
+  emojiStatusAccessModal: EmojiStatusAccessModal,
+  locationAccessModal: LocationAccessModal,
   aboutAdsModal: AboutAdsModal,
+  giftUpgradeModal: GiftUpgradeModal,
+  monetizationVerificationModal: VerificationMonetizationModal,
+  giftWithdrawModal: GiftWithdrawModal,
+  giftStatusInfoModal: GiftStatusInfoModal,
+  preparedMessageModal: PreparedMessageModal,
+  sharePreparedMessageModal: SharePreparedMessageModal,
+  giftTransferModal: GiftTransferModal,
 };
 const MODAL_KEYS = Object.keys(MODALS) as ModalKey[];
 const MODAL_ENTRIES = Object.entries(MODALS) as Entries<ModalRegistry>;

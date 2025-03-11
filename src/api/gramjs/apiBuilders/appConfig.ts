@@ -2,8 +2,7 @@
 import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
 
-import type { ApiLimitType, ApiPremiumSection } from '../../../global/types';
-import type { ApiAppConfig } from '../../types';
+import type { ApiAppConfig, ApiLimitType, ApiPremiumSection } from '../../types';
 
 import {
   DEFAULT_LIMITS,
@@ -87,6 +86,7 @@ export interface GramJsAppConfig extends LimitsConfig {
   stargifts_message_length_max?: number;
   stargifts_convert_period_max?: number;
   starref_start_param_prefixes?: string[];
+  ton_blockchain_explorer_url?: string;
 }
 
 function buildEmojiSounds(appConfig: GramJsAppConfig) {
@@ -173,5 +173,6 @@ export function buildAppConfig(json: GramJs.TypeJSONValue, hash: number): ApiApp
     starGiftMaxMessageLength: appConfig.stargifts_message_length_max,
     starGiftMaxConvertPeriod: appConfig.stargifts_convert_period_max,
     starRefStartPrefixes: appConfig.starref_start_param_prefixes,
+    tonExplorerUrl: appConfig.ton_blockchain_explorer_url,
   };
 }

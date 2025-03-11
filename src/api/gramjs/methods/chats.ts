@@ -1,7 +1,7 @@
 import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
+import { RPCError } from '../../../lib/gramjs/errors';
 
-import type { ApiDraft } from '../../../global/types';
 import type {
   ApiChat,
   ApiChatAdminRights,
@@ -9,6 +9,7 @@ import type {
   ApiChatFolder,
   ApiChatFullInfo,
   ApiChatReactions,
+  ApiDraft,
   ApiGroupCall,
   ApiMessage,
   ApiMissingInvitedUser,
@@ -49,7 +50,7 @@ import {
   buildChatMembers,
   getPeerKey,
 } from '../apiBuilders/chats';
-import { buildApiPhoto } from '../apiBuilders/common';
+import { buildApiBotVerification, buildApiPhoto } from '../apiBuilders/common';
 import { buildApiMessage, buildMessageDraft } from '../apiBuilders/messages';
 import { buildApiPeerId, getApiChatIdFromMtpPeer } from '../apiBuilders/peers';
 import { buildStickerSet } from '../apiBuilders/symbols';
@@ -68,8 +69,8 @@ import {
 } from '../gramjsBuilders';
 import {
   addPhotoToLocalDb,
-  isChatFolder,
-} from '../helpers';
+} from '../helpers/localDb';
+import { isChatFolder } from '../helpers/misc';
 import { scheduleMutedChatUpdate } from '../scheduleUnmute';
 import { sendApiUpdate } from '../updates/apiUpdateEmitter';
 import {
@@ -603,9 +604,12 @@ async function getFullChannelInfo(
     emojiset,
     boostsApplied,
     boostsUnrestrict,
+    botVerification,
     canViewRevenue: canViewMonetization,
     paidReactionsAvailable,
     hasScheduled,
+    stargiftsCount,
+    stargiftsAvailable,
   } = result.fullChat;
 
   if (chatPhoto) {
@@ -616,12 +620,12 @@ async function getFullChannelInfo(
     ? exportedInvite.link
     : undefined;
 
-  const { members, userStatusesById } = (canViewParticipants && await fetchMembers(id, accessHash)) || {};
+  const { members, userStatusesById } = (canViewParticipants && await fetchMembers({ chat })) || {};
   const { members: kickedMembers, userStatusesById: bannedStatusesById } = (
-    canViewParticipants && adminRights && await fetchMembers(id, accessHash, 'kicked')
+    canViewParticipants && adminRights && await fetchMembers({ chat, memberFilter: 'kicked' })
   ) || {};
   const { members: adminMembers, userStatusesById: adminStatusesById } = (
-    canViewParticipants && await fetchMembers(id, accessHash, 'admin')
+    canViewParticipants && await fetchMembers({ chat, memberFilter: 'admin' })
   ) || {};
   const botCommands = botInfo ? buildApiChatBotCommands(botInfo) : undefined;
   const memberInfoRequest = !chat.isNotJoined && chat.type === 'chatTypeChannel'
@@ -629,7 +633,7 @@ async function getFullChannelInfo(
   const memberInfo = memberInfoRequest?.member;
   const joinInfo = memberInfo?.joinedDate ? {
     joinedDate: memberInfo.joinedDate,
-    inviter: memberInfo.inviterId,
+    inviterId: memberInfo.inviterId,
     isViaRequest: memberInfo.isViaRequest,
   } : undefined;
 
@@ -695,8 +699,11 @@ async function getFullChannelInfo(
       hasPinnedStories: Boolean(storiesPinnedAvailable),
       boostsApplied,
       boostsToUnrestrict: boostsUnrestrict,
+      botVerification: botVerification && buildApiBotVerification(botVerification),
       isPaidReactionAvailable: paidReactionsAvailable,
       hasScheduledMessages: hasScheduled,
+      starGiftCount: stargiftsCount,
+      areStarGiftsAvailable: Boolean(stargiftsAvailable),
     },
     chats,
     userStatusesById: statusesById,
@@ -833,14 +840,15 @@ export function joinChannel({
 }
 
 export function deleteChatUser({
-  chat, user,
+  chat, user, shouldRevokeHistory,
 }: {
-  chat: ApiChat; user: ApiUser;
+  chat: ApiChat; user: ApiUser; shouldRevokeHistory?: boolean;
 }) {
   if (chat.type !== 'chatTypeBasicGroup') return undefined;
   return invokeRequest(new GramJs.messages.DeleteChatUser({
     chatId: buildInputEntity(chat.id, chat.accessHash) as BigInt.BigInteger,
     userId: buildInputEntity(user.id, user.accessHash) as GramJs.InputUser,
+    revokeHistory: shouldRevokeHistory || undefined,
   }), {
     shouldReturnTrue: true,
   });
@@ -1278,22 +1286,31 @@ export function toggleSignatures({
 type ChannelMembersFilter =
   'kicked'
   | 'admin'
-  | 'recent';
+  | 'recent'
+  | 'search';
 
-export async function fetchMembers(
-  chatId: string,
-  accessHash: string,
-  memberFilter: ChannelMembersFilter = 'recent',
-  offset?: number,
-) {
+export async function fetchMembers({
+  chat,
+  memberFilter = 'recent',
+  offset,
+  query = '',
+} : {
+  chat: ApiChat;
+  memberFilter?: ChannelMembersFilter;
+  offset?: number;
+  query?: string;
+}) {
   let filter: GramJs.TypeChannelParticipantsFilter;
 
   switch (memberFilter) {
     case 'kicked':
-      filter = new GramJs.ChannelParticipantsKicked({ q: '' });
+      filter = new GramJs.ChannelParticipantsKicked({ q: query });
       break;
     case 'admin':
       filter = new GramJs.ChannelParticipantsAdmins();
+      break;
+    case 'search':
+      filter = new GramJs.ChannelParticipantsSearch({ q: query });
       break;
     default:
       filter = new GramJs.ChannelParticipantsRecent();
@@ -1301,12 +1318,12 @@ export async function fetchMembers(
   }
 
   const result = await invokeRequest(new GramJs.channels.GetParticipants({
-    channel: buildInputEntity(chatId, accessHash) as GramJs.InputChannel,
+    channel: buildInputEntity(chat.id, chat.accessHash) as GramJs.InputChannel,
     filter,
     offset,
     limit: MEMBERS_LOAD_SLICE,
   }), {
-    abortControllerChatId: chatId,
+    abortControllerChatId: chat.id,
   });
 
   if (!result || result instanceof GramJs.channels.ChannelParticipantsNotModified) {
@@ -1458,11 +1475,12 @@ export async function addChatMembers(chat: ApiChat, users: ApiUser[]) {
     if (addChatUsersResult) {
       return addChatUsersResult.flat().filter(Boolean);
     }
-  } catch (err) {
+  } catch (err: unknown) {
+    const message = err instanceof RPCError ? err.errorMessage : (err as Error).message;
     sendApiUpdate({
       '@type': 'error',
       error: {
-        message: (err as Error).message,
+        message,
       },
     });
   }

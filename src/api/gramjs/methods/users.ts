@@ -2,7 +2,7 @@ import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
 
 import type {
-  ApiChat, ApiPeer, ApiUser,
+  ApiChat, ApiEmojiStatusType, ApiPeer, ApiUser,
 } from '../../types';
 
 import { buildApiChatFromPreview } from '../apiBuilders/chats';
@@ -17,7 +17,7 @@ import {
   buildMtpPeerId,
   getEntityTypeById,
 } from '../gramjsBuilders';
-import { addPhotoToLocalDb, addUserToLocalDb } from '../helpers';
+import { addPhotoToLocalDb, addUserToLocalDb } from '../helpers/localDb';
 import localDb from '../localDb';
 import { sendApiUpdate } from '../updates/apiUpdateEmitter';
 import { invokeRequest } from './client';
@@ -289,7 +289,8 @@ export async function fetchProfilePhotos({
 
   return {
     count: totalCount,
-    photos: messages.map((message) => message.content.action!.photo).filter(Boolean),
+    photos: messages.map((message) => message.content.action?.type === 'chatEditPhoto' && message.content.action.photo)
+      .filter(Boolean),
     nextOffsetId,
   };
 }
@@ -304,9 +305,9 @@ export function reportSpam(userOrChat: ApiPeer) {
   });
 }
 
-export function updateEmojiStatus(emojiStatusId: string, expires?: number) {
+export function updateEmojiStatus(emojiStatus: ApiEmojiStatusType) {
   return invokeRequest(new GramJs.account.UpdateEmojiStatus({
-    emojiStatus: buildInputEmojiStatus(emojiStatusId, expires),
+    emojiStatus: buildInputEmojiStatus(emojiStatus),
   }), {
     shouldReturnTrue: true,
   });

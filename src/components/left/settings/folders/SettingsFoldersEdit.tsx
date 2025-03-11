@@ -23,8 +23,9 @@ import { selectChatFilters } from '../../../../hooks/reducers/useFoldersReducer'
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useOldLang from '../../../../hooks/useOldLang';
 
-import AnimatedIcon from '../../../common/AnimatedIcon';
+import AnimatedIconWithPreview from '../../../common/AnimatedIconWithPreview';
 import GroupChatInfo from '../../../common/GroupChatInfo';
+import Icon from '../../../common/icons/Icon';
 import PrivateChatInfo from '../../../common/PrivateChatInfo';
 import FloatingActionButton from '../../../ui/FloatingActionButton';
 import InputText from '../../../ui/InputText';
@@ -282,7 +283,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
     <div className="settings-fab-wrapper">
       <div className="settings-content no-border custom-scroll">
         <div className="settings-content-header">
-          <AnimatedIcon
+          <AnimatedIconWithPreview
             size={STICKER_SIZE_FOLDER_SETTINGS}
             tgsUrl={LOCAL_TGS_URLS.FoldersNew}
             play={String(state.folderId)}
@@ -298,7 +299,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
           <InputText
             className="mb-0"
             label={lang('FilterNameHint')}
-            value={state.folder.title}
+            value={state.folder.title.text}
             onChange={handleChange}
             error={state.error && state.error === ERROR_NO_TITLE ? ERROR_NO_TITLE : undefined}
           />
@@ -386,7 +387,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
         {state.isLoading ? (
           <Spinner color="white" />
         ) : (
-          <i className="icon icon-check" />
+          <Icon name="check" />
         )}
       </FloatingActionButton>
     </div>
