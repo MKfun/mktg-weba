@@ -1087,6 +1087,17 @@ export interface LangPair {
   'AriaOpenBotMenu': undefined;
   'AriaOpenSymbolMenu': undefined;
   'AriaComposerOpenScheduled': undefined;
+  'AriaComposerBotKeyboard': undefined;
+  'AriaComposerSilentPostingEnable': undefined;
+  'AriaComposerSilentPostingDisable': undefined;
+  'ComposerSilentPostingEnabledTootlip': undefined;
+  'ComposerSilentPostingDisabledTootlip': undefined;
+  'ComposerPlaceholder': undefined;
+  'ComposerPlaceholderBroadcast': undefined;
+  'ComposerPlaceholderBroadcastSilent': undefined;
+  'ComposerPlaceholderTopicGeneral': undefined;
+  'ComposerStoryPlaceholderLocked': undefined;
+  'ComposerPlaceholderNoText': undefined;
   'AriaComposerCancelVoice': undefined;
   'PreviewEditMessage': undefined;
   'FileDropZoneTitle': undefined;
@@ -1183,6 +1194,8 @@ export interface LangPair {
   'GiftInfoConvertDescription2': undefined;
   'GiftInfoSavedHide': undefined;
   'GiftInfoSavedShow': undefined;
+  'GiftActionShow': undefined;
+  'GiftActionHide': undefined;
   'GiftInfoTonLinkText': undefined;
   'GiftInfoAvailability': undefined;
   'GiftInfoFirstSale': undefined;
@@ -1303,6 +1316,7 @@ export interface LangPair {
   'ViewButtonStory': undefined;
   'ViewButtonBoost': undefined;
   'ViewButtonStickerset': undefined;
+  'ViewButtonEmojiset': undefined;
   'ViewButtonGiftUnique': undefined;
   'AuthContinueOnThisLanguage': undefined;
   'Share': undefined;
@@ -1703,6 +1717,9 @@ export interface LangPairWithVariables<V extends unknown = LangVariable> {
   };
   'MediaViewDownloading': {
     'count': V;
+  };
+  'ComposerPlaceholderTopic': {
+    'topic': V;
   };
   'ChannelManagementLinkDiscussion': {
     'group': V;

@@ -154,6 +154,7 @@ export const EDITABLE_STORY_INPUT_CSS_SELECTOR = `#${EDITABLE_STORY_INPUT_ID}`;
 export const CUSTOM_APPENDIX_ATTRIBUTE = 'data-has-custom-appendix';
 export const MESSAGE_CONTENT_CLASS_NAME = 'message-content';
 export const MESSAGE_CONTENT_SELECTOR = '.message-content';
+export const VIEW_TRANSITION_CLASS_NAME = 'active-view-transition';
 
 export const RESIZE_HANDLE_CLASS_NAME = 'resizeHandle';
 export const RESIZE_HANDLE_SELECTOR = `.${RESIZE_HANDLE_CLASS_NAME}`;
@@ -202,7 +203,7 @@ export const STICKER_SIZE_AUTH_MOBILE = 120;
 export const STICKER_SIZE_PICKER = 72;
 export const EMOJI_SIZE_PICKER = 36;
 export const COMPOSER_EMOJI_SIZE_PICKER = 32;
-export const STICKER_SIZE_GENERAL_SETTINGS = 48;
+export const STICKER_SIZE_GENERAL_SETTINGS = 40;
 export const STICKER_SIZE_PICKER_HEADER = 32;
 export const STICKER_PICKER_MAX_SHARED_COVERS = 20;
 export const STICKER_SIZE_SEARCH = 72;
