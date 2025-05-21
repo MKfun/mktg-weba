@@ -1,5 +1,6 @@
 import type {
-  ApiInputInvoice, ApiInputInvoicePremiumGiftStars, ApiInputInvoiceStarGift, ApiRequestInputInvoice,
+  ApiInputInvoice, ApiInputInvoicePremiumGiftStars, ApiInputInvoiceStarGift, ApiInputInvoiceStarGiftResale,
+  ApiRequestInputInvoice,
 } from '../../../api/types';
 import type { ApiCredentials } from '../../../components/payment/PaymentModal';
 import type { RegularLangFnParameters } from '../../../util/localization';
@@ -40,6 +41,7 @@ import { updateTabState } from '../../reducers/tabs';
 import {
   selectChat,
   selectChatFullInfo,
+  selectIsCurrentUserFrozen,
   selectPaymentInputInvoice,
   selectPaymentRequestId,
   selectProviderPublicToken,
@@ -96,6 +98,8 @@ addActionHandler('openInvoice', async (global, actions, payload): Promise<void> 
 
   if ('error' in form) {
     setGlobal(global);
+
+    handlePaymentFormError(form.error, tabId);
     return;
   }
 
@@ -138,6 +142,20 @@ addActionHandler('sendStarGift', (global, actions, payload): ActionReturnType =>
   };
 
   payInputStarInvoice(global, inputInvoice, gift.stars, tabId);
+});
+
+addActionHandler('buyStarGift', (global, actions, payload): ActionReturnType => {
+  const {
+    slug, stars, tabId = getCurrentTabId(),
+  } = payload;
+
+  const inputInvoice: ApiInputInvoiceStarGiftResale = {
+    type: 'stargiftResale',
+    slug,
+    peerId: global.currentUserId!,
+  };
+
+  payInputStarInvoice(global, inputInvoice, stars, tabId);
 });
 
 addActionHandler('sendPremiumGiftByStars', (global, actions, payload): ActionReturnType => {
@@ -530,6 +548,11 @@ addActionHandler('openGiftModal', async (global, actions, payload): Promise<void
     forUserId, tabId = getCurrentTabId(),
   } = payload;
 
+  if (selectIsCurrentUserFrozen(global)) {
+    actions.openFrozenAccountModal({ tabId });
+    return;
+  }
+
   const gifts = await callApi('getPremiumGiftCodeOptions', {});
   if (!gifts) return;
 
@@ -548,6 +571,11 @@ addActionHandler('openStarsGiftModal', async (global, actions, payload): Promise
     forUserId,
     tabId = getCurrentTabId(),
   } = payload || {};
+
+  if (selectIsCurrentUserFrozen(global)) {
+    actions.openFrozenAccountModal({ tabId });
+    return;
+  }
 
   const starsGiftOptions = await callApi('getStarsGiftOptions', {});
 
@@ -1088,6 +1116,7 @@ async function payInputStarInvoice<T extends GlobalState>(
   setGlobal(global);
 
   if ('error' in form) {
+    handlePaymentFormError(form.error, tabId);
     return;
   }
 
@@ -1167,3 +1196,19 @@ addActionHandler('processStarGiftWithdrawal', async (global, actions, payload): 
   actions.openUrl({ url: result.url, shouldSkipModal: true, tabId });
   actions.closeGiftWithdrawModal({ tabId });
 });
+
+function handlePaymentFormError(error: string, tabId: number) {
+  if (error === 'SLUG_INVALID') {
+    // eslint-disable-next-line eslint-multitab-tt/no-getactions-in-actions
+    getActions().showNotification({
+      message: {
+        key: 'PaymentInvoiceNotFound',
+      },
+      tabId,
+    });
+    return;
+  }
+
+  // eslint-disable-next-line eslint-multitab-tt/no-getactions-in-actions
+  getActions().showDialog({ data: { message: error, hasErrorKey: true }, tabId });
+}

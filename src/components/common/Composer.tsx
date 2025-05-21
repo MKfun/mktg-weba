@@ -15,6 +15,7 @@ import type {
   ApiBotMenuButton,
   ApiChat,
   ApiChatFullInfo,
+  ApiDisallowedGifts,
   ApiDraft,
   ApiFormattedText,
   ApiMessage,
@@ -35,9 +36,9 @@ import type {
 import type {
   IAnchorPosition,
   InlineBotSettings,
-  ISettings,
   MessageList,
   MessageListType,
+  ThemeKey,
   ThreadId,
 } from '../../types';
 import { MAIN_THREAD_ID } from '../../api/types';
@@ -82,6 +83,7 @@ import {
   selectEditingMessage,
   selectEditingScheduledDraft,
   selectIsChatWithSelf,
+  selectIsCurrentUserFrozen,
   selectIsCurrentUserPremium,
   selectIsInSelectMode,
   selectIsPremiumPurchaseBlocked,
@@ -91,6 +93,7 @@ import {
   selectNotifyDefaults,
   selectNotifyException,
   selectNoWebPage,
+  selectPeer,
   selectPeerPaidMessagesStars,
   selectPeerStory,
   selectPerformanceSettingsValue,
@@ -103,6 +106,8 @@ import {
   selectUserFullInfo,
 } from '../../global/selectors';
 import { selectCurrentLimit } from '../../global/selectors/limits';
+import { selectSharedSettings } from '../../global/selectors/sharedState';
+import { IS_IOS, IS_VOICE_RECORDING_SUPPORTED } from '../../util/browser/windowEnvironment';
 import buildClassName from '../../util/buildClassName';
 import { formatMediaDuration, formatVoiceRecordDuration } from '../../util/dates/dateFormat';
 import { processDeepLink } from '../../util/deeplink';
@@ -115,7 +120,6 @@ import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import parseHtmlAsFormattedText from '../../util/parseHtmlAsFormattedText';
 import { insertHtmlInSelection } from '../../util/selection';
 import { getServerTime } from '../../util/serverTime';
-import { IS_IOS, IS_VOICE_RECORDING_SUPPORTED } from '../../util/windowEnvironment';
 import windowSize from '../../util/windowSize';
 import applyIosAutoCapitalizationFix from '../middle/composer/helpers/applyIosAutoCapitalizationFix';
 import buildAttachment, { prepareAttachmentsToSend } from '../middle/composer/helpers/buildAttachment';
@@ -225,6 +229,7 @@ type StateProps =
     isRightColumnShown?: boolean;
     isSelectModeActive?: boolean;
     isReactionPickerOpen?: boolean;
+    shouldDisplayGiftsButton?: boolean;
     isForwarding?: boolean;
     forwardedMessagesCount?: number;
     pollModal: TabState['pollModal'];
@@ -256,7 +261,7 @@ type StateProps =
     requestedDraftFiles?: File[];
     attachBots: GlobalState['attachMenu']['bots'];
     attachMenuPeerType?: ApiAttachMenuPeerType;
-    theme: ISettings['theme'];
+    theme: ThemeKey;
     fileSizeLimit: number;
     captionLimit: number;
     isCurrentUserPremium?: boolean;
@@ -290,6 +295,10 @@ type StateProps =
     isPaymentMessageConfirmDialogOpen: boolean;
     starsBalance: number;
     isStarsBalanceModalOpen: boolean;
+    disallowedGifts?: ApiDisallowedGifts;
+    isAccountFrozen?: boolean;
+    isAppConfigLoaded?: boolean;
+    insertingPeerIdMention?: string;
   };
 
 enum MainButtonState {
@@ -342,6 +351,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   isRightColumnShown,
   isSelectModeActive,
   isReactionPickerOpen,
+  shouldDisplayGiftsButton,
   isForwarding,
   forwardedMessagesCount,
   pollModal,
@@ -410,6 +420,10 @@ const Composer: FC<OwnProps & StateProps> = ({
   isPaymentMessageConfirmDialogOpen,
   starsBalance,
   isStarsBalanceModalOpen,
+  disallowedGifts,
+  isAccountFrozen,
+  isAppConfigLoaded,
+  insertingPeerIdMention,
 }) => {
   const {
     sendMessage,
@@ -428,6 +442,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     showNotification,
     showAllowedMessageTypesNotification,
     openStoryReactionPicker,
+    openGiftModal,
     closeReactionPicker,
     sendStoryReaction,
     editMessage,
@@ -436,6 +451,7 @@ const Composer: FC<OwnProps & StateProps> = ({
     setReactionEffect,
     hideEffectInComposer,
     updateChatSilentPosting,
+    updateInsertingPeerIdMention,
   } = getActions();
 
   const oldLang = useOldLang();
@@ -498,10 +514,10 @@ const Composer: FC<OwnProps & StateProps> = ({
   }, [chatId]);
 
   useEffect(() => {
-    if (chatId && isReady && !isInStoryViewer) {
+    if (isAppConfigLoaded && chatId && isReady && !isInStoryViewer) {
       loadScheduledHistory({ chatId });
     }
-  }, [isReady, chatId, threadId, isInStoryViewer]);
+  }, [isReady, chatId, threadId, isInStoryViewer, isAppConfigLoaded]);
 
   useEffect(() => {
     const isChannelWithProfiles = isChannel && chat?.areProfilesShown;
@@ -739,6 +755,15 @@ const Composer: FC<OwnProps & StateProps> = ({
     currentUserId,
   );
 
+  useEffect(() => {
+    if (!insertingPeerIdMention) return;
+    const peer = selectPeer(getGlobal(), insertingPeerIdMention);
+    if (peer) {
+      insertMention(peer, true, true);
+    }
+    updateInsertingPeerIdMention({ peerId: undefined });
+  }, [insertingPeerIdMention, insertMention]);
+
   const {
     isOpen: isInlineBotTooltipOpen,
     botId: inlineBotId,
@@ -828,6 +853,15 @@ const Composer: FC<OwnProps & StateProps> = ({
       resetComposerRef.current();
     };
   }, [chatId, threadId, resetComposerRef, stopRecordingVoiceRef]);
+
+  const areAllGiftsDisallowed = useMemo(() => {
+    if (!disallowedGifts) {
+      return undefined;
+    }
+    return Object.values(disallowedGifts).every(Boolean);
+  }, [disallowedGifts]);
+
+  const shouldShowGiftButton = Boolean(!isChatWithSelf && shouldDisplayGiftsButton && !areAllGiftsDisallowed);
 
   const showCustomEmojiPremiumNotification = useLastCallback(() => {
     const notificationNumber = customEmojiNotificationNumber.current;
@@ -1482,6 +1516,10 @@ const Composer: FC<OwnProps & StateProps> = ({
     });
   });
 
+  const handleGiftClick = useLastCallback(() => {
+    openGiftModal({ forUserId: chatId });
+  });
+
   const handleToggleSilentPosting = useLastCallback(() => {
     const newValue = !isSilentPosting;
     updateChatSilentPosting({ chatId, isEnabled: newValue });
@@ -1959,7 +1997,7 @@ const Composer: FC<OwnProps & StateProps> = ({
               )}
             </>
           )}
-          {((!isComposerBlocked || canSendGifs || canSendStickers) && !isNeedPremium) && (
+          {((!isComposerBlocked || canSendGifs || canSendStickers) && !isNeedPremium && !isAccountFrozen) && (
             <SymbolMenuButton
               chatId={chatId}
               threadId={threadId}
@@ -2053,6 +2091,17 @@ const Composer: FC<OwnProps & StateProps> = ({
                         ariaLabel={lang('AriaComposerOpenScheduled')}
                       >
                         <Icon name="schedule" />
+                      </Button>
+                    )}
+                    {shouldShowGiftButton && (
+                      <Button
+                        round
+                        faded
+                        className="composer-action-button"
+                        color="translucent"
+                        onClick={handleGiftClick}
+                      >
+                        <Icon name="gift" />
                       </Button>
                     )}
                     {Boolean(botKeyboardMessageId) && !activeVoiceRecording && !editingMessage && (
@@ -2300,9 +2349,9 @@ export default memo(withGlobal<OwnProps>(
     const messageWithActualBotKeyboard = (isChatWithBot || !isChatWithUser)
       && selectNewestMessageWithBotKeyboardButtons(global, chatId, threadId);
     const {
-      language, shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder,
-      shouldPaidMessageAutoApprove,
+      shouldSuggestStickers, shouldSuggestCustomEmoji, shouldUpdateStickerSetOrder, shouldPaidMessageAutoApprove,
     } = global.settings.byKey;
+    const { language, shouldCollectDebugLogs } = selectSharedSettings(global);
     const {
       forwardMessages: { messageIds: forwardMessageIds },
     } = selectTabState(global);
@@ -2372,6 +2421,9 @@ export default memo(withGlobal<OwnProps>(
     const isForwarding = chatId === tabState.forwardMessages.toChatId;
     const starsBalance = global.stars?.balance.amount || 0;
     const isStarsBalanceModalOpen = Boolean(tabState.starsBalanceModal);
+    const isAccountFrozen = selectIsCurrentUserFrozen(global);
+    const isAppConfigLoaded = global.isAppConfigLoaded;
+    const insertingPeerIdMention = tabState.insertingPeerIdMention;
 
     return {
       availableReactions: global.reactions.availableReactions,
@@ -2434,7 +2486,7 @@ export default memo(withGlobal<OwnProps>(
       canBuyPremium: !isCurrentUserPremium && !selectIsPremiumPurchaseBlocked(global),
       canPlayAnimatedEmojis: selectCanPlayAnimatedEmojis(global),
       canSendOneTimeMedia: !isChatWithSelf && isChatWithUser && !isChatWithBot && !isInScheduledList,
-      shouldCollectDebugLogs: global.settings.byKey.shouldCollectDebugLogs,
+      shouldCollectDebugLogs,
       sentStoryReaction,
       stealthMode: global.stories.stealthMode,
       replyToTopic,
@@ -2456,6 +2508,11 @@ export default memo(withGlobal<OwnProps>(
       isPaymentMessageConfirmDialogOpen: tabState.isPaymentMessageConfirmDialogOpen,
       starsBalance,
       isStarsBalanceModalOpen,
+      shouldDisplayGiftsButton: userFullInfo?.shouldDisplayGiftsButton,
+      disallowedGifts: userFullInfo?.disallowedGifts,
+      isAccountFrozen,
+      isAppConfigLoaded,
+      insertingPeerIdMention,
     };
   },
 )(Composer));

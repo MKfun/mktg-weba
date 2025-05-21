@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react';
 import React, {
-  memo, useMemo, useState,
+  memo, useEffect, useMemo, useState,
 } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
@@ -10,12 +10,9 @@ import {
   type ApiMessage, type ApiPeer, type ApiStarsAmount, MAIN_THREAD_ID,
 } from '../../../api/types';
 
-import {
-} from '../../../global/helpers';
 import { getPeerTitle, isApiPeerUser } from '../../../global/helpers/peers';
 import {
-  selectPeer, selectPeerPaidMessagesStars,
-  selectTabState, selectTheme,
+  selectPeer, selectPeerPaidMessagesStars, selectTabState, selectTheme, selectThemeValues, selectUserFullInfo,
 } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import buildStyle from '../../../util/buildStyle';
@@ -54,6 +51,8 @@ export type StateProps = {
   isPaymentFormLoading?: boolean;
   starBalance?: ApiStarsAmount;
   paidMessagesStars?: number;
+  areUniqueStarGiftsDisallowed?: boolean;
+  shouldDisallowLimitedStarGifts?: boolean;
 };
 
 const LIMIT_DISPLAY_THRESHOLD = 50;
@@ -73,6 +72,8 @@ function GiftComposer({
   isPaymentFormLoading,
   starBalance,
   paidMessagesStars,
+  areUniqueStarGiftsDisallowed,
+  shouldDisallowLimitedStarGifts,
 }: OwnProps & StateProps) {
   const {
     sendStarGift, sendPremiumGiftByStars, openInvoice, openGiftUpgradeModal, openStarsBalanceModal,
@@ -86,6 +87,12 @@ function GiftComposer({
   const [shouldPayByStars, setShouldPayByStars] = useState<boolean>(false);
 
   const customBackgroundValue = useCustomBackground(theme, customBackground);
+
+  useEffect(() => {
+    if (shouldDisallowLimitedStarGifts) {
+      setShouldPayForUpgrade(true);
+    }
+  }, [shouldDisallowLimitedStarGifts, shouldPayForUpgrade]);
 
   const isStarGift = 'id' in gift;
   const hasPremiumByStars = giftByStars && 'amount' in giftByStars;
@@ -249,8 +256,14 @@ function GiftComposer({
           </div>
         )}
 
-        {isStarGift && gift.upgradeStars && (
-          <ListItem className={styles.switcher} narrow ripple onClick={handleShouldPayForUpgradeChange}>
+        {isStarGift && gift.upgradeStars && !areUniqueStarGiftsDisallowed && (
+          <ListItem
+            className={styles.switcher}
+            narrow
+            ripple
+            onClick={handleShouldPayForUpgradeChange}
+            disabled={shouldDisallowLimitedStarGifts}
+          >
             <span>
               {lang('GiftMakeUnique', {
                 stars: formatStarsAsIcon(lang, gift.upgradeStars, { className: styles.switcherStarIcon }),
@@ -263,7 +276,7 @@ function GiftComposer({
             />
           </ListItem>
         )}
-        {isStarGift && gift.upgradeStars && (
+        {isStarGift && gift.upgradeStars && !areUniqueStarGiftsDisallowed && (
           <div className={styles.description}>
             {isPeerUser
               ? lang('GiftMakeUniqueDescription', {
@@ -386,9 +399,16 @@ export default memo(withGlobal<OwnProps>(
       patternColor,
       background: customBackground,
       backgroundColor,
-    } = global.settings.themes[theme] || {};
+    } = selectThemeValues(global, theme) || {};
     const peer = selectPeer(global, peerId);
     const paidMessagesStars = selectPeerPaidMessagesStars(global, peerId);
+    const userFullInfo = selectUserFullInfo(global, peerId);
+    const currentUserId = global.currentUserId;
+    const isGiftForSelf = currentUserId === peerId;
+    const areUniqueStarGiftsDisallowed = !isGiftForSelf
+      && userFullInfo?.disallowedGifts?.shouldDisallowUniqueStarGifts;
+    const shouldDisallowLimitedStarGifts = !isGiftForSelf
+      && userFullInfo?.disallowedGifts?.shouldDisallowLimitedStarGifts;
 
     const tabState = selectTabState(global);
 
@@ -404,6 +424,8 @@ export default memo(withGlobal<OwnProps>(
       currentUserId: global.currentUserId,
       isPaymentFormLoading: tabState.isPaymentFormLoading,
       paidMessagesStars,
+      areUniqueStarGiftsDisallowed,
+      shouldDisallowLimitedStarGifts,
     };
   },
 )(GiftComposer));

@@ -142,6 +142,7 @@ export interface ApiChatFullInfo {
   hasScheduledMessages?: boolean;
   starGiftCount?: number;
   areStarGiftsAvailable?: boolean;
+  arePaidMessagesAvailable?: true;
 
   boostsApplied?: number;
   boostsToUnrestrict?: number;
@@ -312,4 +313,11 @@ export type ApiDraft = {
   date?: number;
   effectId?: string;
   isLocal?: boolean;
+};
+
+export type ApiSponsoredPeer = {
+  randomId: string;
+  peerId: string;
+  sponsorInfo?: string;
+  additionalInfo?: string;
 };

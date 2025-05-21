@@ -5,6 +5,7 @@ import React, {
 import { getActions, withGlobal } from '../../../global';
 
 import type {
+  ApiDisallowedGifts,
   ApiPeer,
   ApiPremiumGiftCodeOption,
   ApiStarGiftRegular,
@@ -16,7 +17,7 @@ import type { StarGiftCategory } from '../../../types';
 import { STARS_CURRENCY_CODE } from '../../../config';
 import { getUserFullName } from '../../../global/helpers';
 import { getPeerTitle, isApiPeerChat, isApiPeerUser } from '../../../global/helpers/peers';
-import { selectPeer } from '../../../global/selectors';
+import { selectPeer, selectUserFullInfo } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { throttle } from '../../../util/schedulers';
 
@@ -54,6 +55,7 @@ type StateProps = {
   starBalance?: ApiStarsAmount;
   peer?: ApiPeer;
   isSelf?: boolean;
+  disallowedGifts?: ApiDisallowedGifts;
 };
 
 const AVATAR_SIZE = 100;
@@ -62,13 +64,14 @@ const SCROLL_THROTTLE = 200;
 
 const runThrottledForScroll = throttle((cb) => cb(), SCROLL_THROTTLE, true);
 
-const PremiumGiftModal: FC<OwnProps & StateProps> = ({
+const GiftModal: FC<OwnProps & StateProps> = ({
   modal,
   starGiftsById,
   starGiftIdsByCategory,
   starBalance,
   peer,
   isSelf,
+  disallowedGifts,
 }) => {
   const {
     closeGiftModal,
@@ -95,6 +98,20 @@ const PremiumGiftModal: FC<OwnProps & StateProps> = ({
   const [isGiftScreenHeaderForStarGifts, setIsGiftScreenHeaderForStarGifts] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<StarGiftCategory>('all');
+
+  const areAllGiftsDisallowed = useMemo(() => {
+    if (!disallowedGifts) {
+      return undefined;
+    }
+    const {
+      shouldDisallowPremiumGifts,
+      ...disallowedGiftTypes
+    } = disallowedGifts;
+    return !isSelf && Object.values(disallowedGiftTypes).every(Boolean);
+  }, [isSelf, disallowedGifts]);
+
+  const areUnlimitedStarGiftsDisallowed = !isSelf && disallowedGifts?.shouldDisallowUnlimitedStarGifts;
+  const areLimitedStarGiftsDisallowed = !isSelf && disallowedGifts?.shouldDisallowLimitedStarGifts;
 
   const oldLang = useOldLang();
   const lang = useLang();
@@ -221,12 +238,31 @@ const PremiumGiftModal: FC<OwnProps & StateProps> = ({
   });
 
   function renderStarGifts() {
+    const filteredGiftIds = starGiftIdsByCategory?.[selectedCategory]?.filter((giftId) => {
+      const gift = starGiftsById?.[giftId];
+      if (!gift) return false;
+
+      const { isLimited, isSoldOut, upgradeStars } = gift;
+      if (areUnlimitedStarGiftsDisallowed && !areLimitedStarGiftsDisallowed) {
+        return isLimited;
+      }
+      if (areLimitedStarGiftsDisallowed && !areUnlimitedStarGiftsDisallowed) {
+        return !isLimited && !isSoldOut;
+      }
+      if (areUnlimitedStarGiftsDisallowed && areLimitedStarGiftsDisallowed) {
+        return Boolean(isLimited && !!upgradeStars);
+      }
+
+      return true;
+    });
+
     return (
       <div className={styles.starGiftsContainer}>
-        {starGiftsById && starGiftIdsByCategory?.[selectedCategory].map((giftId) => {
+        {starGiftsById && filteredGiftIds?.map((giftId) => {
           const gift = starGiftsById[giftId];
           return (
             <GiftItemStar
+              key={giftId}
               gift={gift}
               observeIntersection={observeIntersection}
               onClick={handleGiftClick}
@@ -276,20 +312,31 @@ const PremiumGiftModal: FC<OwnProps & StateProps> = ({
           />
           <img className={styles.logoBackground} src={StarsBackground} alt="" draggable={false} />
         </div>
-        {!isSelf && !chat && renderGiftPremiumHeader()}
-        {!isSelf && !chat && renderGiftPremiumDescription()}
-        {!isSelf && !chat && renderPremiumGifts()}
+        {!isSelf && !chat && !disallowedGifts?.shouldDisallowPremiumGifts && (
+          <>
+            {renderGiftPremiumHeader()}
+            {renderGiftPremiumDescription()}
+            {renderPremiumGifts()}
+          </>
+        )}
 
-        {renderStarGiftsHeader()}
-        {renderStarGiftsDescription()}
-        <StarGiftCategoryList onCategoryChanged={onCategoryChanged} />
-        <Transition
-          name="zoomFade"
-          activeKey={getCategoryKey(selectedCategory)}
-          className={styles.starGiftsTransition}
-        >
-          {renderStarGifts()}
-        </Transition>
+        {!areAllGiftsDisallowed && (
+          <>
+            {renderStarGiftsHeader()}
+            {renderStarGiftsDescription()}
+            <StarGiftCategoryList
+              areLimitedStarGiftsDisallowed={areLimitedStarGiftsDisallowed}
+              onCategoryChanged={onCategoryChanged}
+            />
+            <Transition
+              name="zoomFade"
+              activeKey={getCategoryKey(selectedCategory)}
+              className={styles.starGiftsTransition}
+            >
+              {renderStarGifts()}
+            </Transition>
+          </>
+        )}
       </div>
     );
   }
@@ -361,6 +408,7 @@ export default memo(withGlobal<OwnProps>((global, { modal }): StateProps => {
 
   const peer = modal?.forPeerId ? selectPeer(global, modal.forPeerId) : undefined;
   const isSelf = Boolean(currentUserId && modal?.forPeerId === currentUserId);
+  const userFullInfo = peer ? selectUserFullInfo(global, peer?.id) : undefined;
 
   return {
     boostPerSentGift: global.appConfig?.boostsPerSentGift,
@@ -369,8 +417,9 @@ export default memo(withGlobal<OwnProps>((global, { modal }): StateProps => {
     starBalance: stars?.balance,
     peer,
     isSelf,
+    disallowedGifts: userFullInfo?.disallowedGifts,
   };
-})(PremiumGiftModal));
+})(GiftModal));
 
 function getCategoryKey(category: StarGiftCategory) {
   if (category === 'all') return -2;

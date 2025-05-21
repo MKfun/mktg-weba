@@ -17,7 +17,6 @@ import type {
   ThreadId,
 } from '../../../types';
 import type { MessageKey } from '../../../util/keys/messageKey';
-import type { RegularLangFnParameters } from '../../../util/localization';
 import type { RequiredGlobalActions } from '../../index';
 import type {
   ActionReturnType, GlobalState, TabArgs,
@@ -30,13 +29,14 @@ import {
   MAX_MEDIA_FILES_FOR_ALBUM,
   MESSAGE_ID_REQUIRED_ERROR,
   MESSAGE_LIST_SLICE,
-  PAID_SEND_DELAY, RE_TELEGRAM_LINK,
+  RE_TELEGRAM_LINK,
   SERVICE_NOTIFICATIONS_USER_ID,
   SUPPORTED_AUDIO_CONTENT_TYPES,
   SUPPORTED_PHOTO_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
 } from '../../../config';
 import { ensureProtocol, isMixedScriptUrl } from '../../../util/browser/url';
+import { IS_IOS } from '../../../util/browser/windowEnvironment';
 import { copyTextToClipboardFromPromise } from '../../../util/clipboard';
 import { isDeepLink } from '../../../util/deepLinkParser';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
@@ -49,9 +49,10 @@ import {
   unique,
 } from '../../../util/iteratees';
 import { getMessageKey, isLocalMessageId } from '../../../util/keys/messageKey';
+import { getTranslationFn, type RegularLangFnParameters } from '../../../util/localization';
+import { formatStarsAsText } from '../../../util/localization/format';
 import { oldTranslate } from '../../../util/oldLangProvider';
 import { debounce, onTickEnd, rafPromise } from '../../../util/schedulers';
-import { IS_IOS } from '../../../util/windowEnvironment';
 import { callApi, cancelApiProgress } from '../../../api/gramjs';
 import {
   getIsSavedDialog,
@@ -83,6 +84,7 @@ import {
   updateChat,
   updateChatFullInfo,
   updateChatMessage,
+  updateGlobalSearch,
   updateListedIds,
   updateMessageTranslation,
   updateOutlyingLists,
@@ -119,6 +121,7 @@ import {
   selectForwardsContainVoiceMessages,
   selectIsChatBotNotStarted,
   selectIsChatWithSelf,
+  selectIsCurrentUserFrozen,
   selectIsCurrentUserPremium,
   selectLanguageCode,
   selectListedIds,
@@ -133,7 +136,6 @@ import {
   selectReplyCanBeSentToChat,
   selectScheduledMessage,
   selectSendAs,
-  selectSponsoredMessage,
   selectTabState,
   selectThreadIdFromMessage,
   selectTopic,
@@ -676,6 +678,13 @@ addActionHandler('saveEffectInDraft', (global, actions, payload): ActionReturnTy
   });
 });
 
+addActionHandler('updateInsertingPeerIdMention', (global, actions, payload): ActionReturnType => {
+  const { peerId, tabId = getCurrentTabId() } = payload || {};
+  return updateTabState(global, {
+    insertingPeerIdMention: peerId,
+  }, tabId);
+});
+
 async function saveDraft<T extends GlobalState>({
   global, chatId, threadId, draft, isLocalOnly, noLocalTimeUpdate,
 } : {
@@ -993,6 +1002,7 @@ addActionHandler('reportChannelSpam', (global, actions, payload): ActionReturnTy
 });
 
 addActionHandler('markMessageListRead', (global, actions, payload): ActionReturnType => {
+  if (selectIsCurrentUserFrozen(global)) return undefined;
   const { maxId, tabId = getCurrentTabId() } = payload!;
 
   const currentMessageList = selectCurrentMessageList(global, tabId);
@@ -1176,6 +1186,8 @@ addActionHandler('loadExtendedMedia', (global, actions, payload): ActionReturnTy
 });
 
 addActionHandler('loadScheduledHistory', async (global, actions, payload): Promise<void> => {
+  if (selectIsCurrentUserFrozen(global)) return;
+
   const { chatId } = payload;
   const chat = selectChat(global, chatId);
   if (!chat) {
@@ -1694,7 +1706,7 @@ async function sendMessagesWithNotification<T extends GlobalState>(
     const { gif, sticker, isReaction } = firstSendParam;
 
     if (gif) {
-      storySendMessage = { key: 'ToastTitleMessageSent' };
+      storySendMessage = { key: 'MessageSentPaidToastTitle', variables: { count: 1 }, options: { pluralValue: 1 } };
     } else if (sticker) {
       storySendMessage = { key: 'StoryTooltipStickerSent' };
     } else if (isReaction) {
@@ -1702,28 +1714,23 @@ async function sendMessagesWithNotification<T extends GlobalState>(
     }
   }
 
-  const titleKey: RegularLangFnParameters = storySendMessage || (messagesCount === 1 ? { key: 'ToastTitleMessageSent' }
-    : { key: 'ToastTitleMessagesSent', variables: { count: messagesCount } });
+  const titleKey: RegularLangFnParameters = storySendMessage || {
+    key: 'MessageSentPaidToastTitle',
+    variables: { count: messagesCount },
+    options: { pluralValue: messagesCount },
+  };
+
+  // eslint-disable-next-line eslint-multitab-tt/no-getactions-in-actions
+  getActions().sendMessages({ sendParams });
 
   // eslint-disable-next-line eslint-multitab-tt/no-getactions-in-actions
   getActions().showNotification({
     localId: getMessageKey(firstMessage),
     title: titleKey,
-    message: { key: 'ToastMessageSent', variables: { amount: starsForOneMessage * messagesCount } },
-    actionText: { key: 'ButtonUndo' },
-    action: {
-      action: 'deleteMessages',
-      payload: { messageList: firstSendParam.messageList, messageIds: messageIdsForUndo, shouldDeleteForAll: true },
+    message: {
+      key: 'MessageSentPaidToastText',
+      variables: { amount: formatStarsAsText(getTranslationFn(), starsForOneMessage * messagesCount) },
     },
-    dismissAction: {
-      action: 'sendMessages',
-      payload: {
-        sendParams,
-      },
-    },
-    duration: PAID_SEND_DELAY,
-    shouldShowTimer: true,
-    disableClickDismiss: true,
     icon: 'star',
     shouldUseCustomIcon: true,
     type: 'paidMessage',
@@ -1845,6 +1852,8 @@ addActionHandler('loadSendPaidReactionsAs', async (global, actions, payload): Pr
 });
 
 addActionHandler('loadSponsoredMessages', async (global, actions, payload): Promise<void> => {
+  if (selectIsCurrentUserFrozen(global)) return;
+
   const { peerId } = payload;
   const peer = selectPeer(global, peerId);
   if (!peer) {
@@ -1865,40 +1874,26 @@ addActionHandler('loadSponsoredMessages', async (global, actions, payload): Prom
   setGlobal(global);
 });
 
-addActionHandler('viewSponsoredMessage', (global, actions, payload): ActionReturnType => {
-  const { peerId } = payload;
-  const peer = selectPeer(global, peerId);
-  const message = selectSponsoredMessage(global, peerId);
-  if (!peer || !message) {
-    return;
-  }
+addActionHandler('viewSponsored', (global, actions, payload): ActionReturnType => {
+  const { randomId } = payload;
 
-  void callApi('viewSponsoredMessage', { peer, random: message.randomId });
+  void callApi('viewSponsoredMessage', { random: randomId });
 });
 
-addActionHandler('clickSponsoredMessage', (global, actions, payload): ActionReturnType => {
-  const { peerId, isMedia, isFullscreen } = payload;
-  const peer = selectPeer(global, peerId);
-  const message = selectSponsoredMessage(global, peerId);
-  if (!peer || !message) {
-    return;
-  }
+addActionHandler('clickSponsored', (global, actions, payload): ActionReturnType => {
+  const { randomId, isMedia, isFullscreen } = payload;
 
   void callApi('clickSponsoredMessage', {
-    peer, random: message.randomId, isMedia, isFullscreen,
+    random: randomId, isMedia, isFullscreen,
   });
 });
 
-addActionHandler('reportSponsoredMessage', async (global, actions, payload): Promise<void> => {
+addActionHandler('reportSponsored', async (global, actions, payload): Promise<void> => {
   const {
     peerId, randomId, option = '', tabId = getCurrentTabId(),
   } = payload;
-  const peer = selectPeer(global, peerId);
-  if (!peer) {
-    return;
-  }
 
-  const result = await callApi('reportSponsoredMessage', { peer, randomId, option });
+  const result = await callApi('reportSponsoredMessage', { randomId, option });
 
   if (!result) return;
 
@@ -1916,7 +1911,13 @@ addActionHandler('reportSponsoredMessage', async (global, actions, payload): Pro
     actions.closeReportAdModal({ tabId });
 
     global = getGlobal();
-    global = deleteSponsoredMessage(global, peerId);
+    if (peerId) {
+      global = deleteSponsoredMessage(global, peerId);
+    } else {
+      global = updateGlobalSearch(global, {
+        sponsoredPeer: undefined,
+      }, tabId);
+    }
     setGlobal(global);
     return;
   }
@@ -1941,7 +1942,7 @@ addActionHandler('reportSponsoredMessage', async (global, actions, payload): Pro
   }
 });
 
-addActionHandler('hideSponsoredMessages', async (global, actions, payload): Promise<void> => {
+addActionHandler('hideSponsored', async (global, actions, payload): Promise<void> => {
   const { tabId = getCurrentTabId() } = payload || {};
   const isCurrentUserPremium = selectIsCurrentUserPremium(global);
   if (!isCurrentUserPremium) {
@@ -2138,6 +2139,7 @@ addActionHandler('openChatOrTopicWithReplyInDraft', (global, actions, payload): 
     replyToTopId: replyingInfo.toThreadId,
     replyToPeerId: currentChatId,
     quoteText: replyingInfo.quoteText,
+    quoteOffset: replyingInfo.quoteOffset,
   } as ApiInputMessageReplyInfo;
 
   const currentReplyInfo = replyingInfo.messageId
@@ -2343,6 +2345,8 @@ addActionHandler('scheduleForViewsIncrement', (global, actions, payload): Action
 
 addActionHandler('loadMessageViews', async (global, actions, payload): Promise<void> => {
   const { chatId, ids, shouldIncrement } = payload;
+
+  if (selectIsCurrentUserFrozen(global)) return;
 
   const chat = selectChat(global, chatId);
   if (!chat) return;

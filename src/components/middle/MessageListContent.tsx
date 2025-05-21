@@ -23,6 +23,7 @@ import { selectSender } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { formatHumanDate } from '../../util/dates/dateFormat';
 import { compact } from '../../util/iteratees';
+import { formatStarsAsText } from '../../util/localization/format';
 import { isAlbum } from './helpers/groupMessages';
 import { preventMessageInputBlur } from './helpers/preventMessageInputBlur';
 
@@ -69,6 +70,7 @@ interface OwnProps {
   onScrollDownToggle: BooleanToVoidFunction;
   onNotchToggle: AnyToVoidFunction;
   onIntersectPinnedMessage: OnIntersectPinnedMessage;
+  canPost?: boolean;
 }
 
 const UNREAD_DIVIDER_CLASS = 'unread-divider';
@@ -103,6 +105,7 @@ const MessageListContent: FC<OwnProps> = ({
   onScrollDownToggle,
   onNotchToggle,
   onIntersectPinnedMessage,
+  canPost,
 }) => {
   const { openHistoryCalendar } = getActions();
 
@@ -154,14 +157,14 @@ const MessageListContent: FC<OwnProps> = ({
           <span>{
             message.isOutgoing
               ? lang('ActionPaidOneMessageOutgoing', {
-                amount,
+                amount: formatStarsAsText(lang, amount),
               })
               : (() => {
                 const sender = selectSender(getGlobal(), message);
                 const userTitle = sender ? getPeerTitle(lang, sender) : '';
                 return lang('ActionPaidOneMessageIncoming', {
                   user: userTitle,
-                  amount,
+                  amount: formatStarsAsText(lang, amount),
                 });
               })()
           }
@@ -324,6 +327,7 @@ const MessageListContent: FC<OwnProps> = ({
           message={lastMessage}
           withAvatar={withAvatar}
           appearanceOrder={lastAppearanceOrder}
+          canPost={canPost}
         >
           {senderGroupElements}
         </SenderGroupContainer>
@@ -371,7 +375,7 @@ const MessageListContent: FC<OwnProps> = ({
     <div className="messages-container" teactFastList>
       {withHistoryTriggers && <div ref={backwardsTriggerRef} key="backwards-trigger" className="backwards-trigger" />}
       {shouldRenderAccountInfo
-        && <MessageListAccountInfo isInMessageList key={`account_info_${chatId}`} chatId={chatId} />}
+        && <MessageListAccountInfo key={`account_info_${chatId}`} chatId={chatId} />}
       {dateGroups.flat()}
       {withHistoryTriggers && (
         <div

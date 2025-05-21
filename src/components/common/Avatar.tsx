@@ -69,6 +69,7 @@ type OwnProps = {
   peer?: ApiPeer | CustomPeer;
   photo?: ApiPhoto;
   webPhoto?: ApiWebDocument;
+  previewUrl?: string;
   text?: string;
   isSavedMessages?: boolean;
   isSavedDialog?: boolean;
@@ -85,6 +86,7 @@ type OwnProps = {
   noPersonalPhoto?: boolean;
   observeIntersection?: ObserveFn;
   onClick?: (e: ReactMouseEvent<HTMLDivElement, MouseEvent>, hasMedia: boolean) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 };
 
 const Avatar: FC<OwnProps> = ({
@@ -93,6 +95,7 @@ const Avatar: FC<OwnProps> = ({
   peer,
   photo,
   webPhoto,
+  previewUrl,
   text,
   isSavedMessages,
   isSavedDialog,
@@ -108,6 +111,7 @@ const Avatar: FC<OwnProps> = ({
   loopIndefinitely,
   noPersonalPhoto,
   onClick,
+  onContextMenu,
 }) => {
   const { openStoryViewer } = getActions();
 
@@ -169,7 +173,8 @@ const Avatar: FC<OwnProps> = ({
 
   const imgBlobUrl = useMedia(imageHash, false, ApiMediaFormat.BlobUrl);
   const videoBlobUrl = useMedia(videoHash, !shouldLoadVideo, ApiMediaFormat.BlobUrl);
-  const hasBlobUrl = Boolean(imgBlobUrl || videoBlobUrl);
+  const imgUrl = imgBlobUrl || previewUrl;
+  const hasBlobUrl = Boolean(imgUrl || videoBlobUrl);
   // `videoBlobUrl` can be taken from memory cache, so we need to check `shouldLoadVideo` again
   const shouldPlayVideo = Boolean(videoBlobUrl && shouldLoadVideo);
 
@@ -205,7 +210,7 @@ const Avatar: FC<OwnProps> = ({
     content = (
       <>
         <img
-          src={imgBlobUrl}
+          src={imgUrl}
           className={buildClassName(cn.media, 'avatar-media', transitionClassNames, videoBlobUrl && 'poster')}
           alt={author}
           decoding="async"
@@ -262,10 +267,10 @@ const Avatar: FC<OwnProps> = ({
     withStorySolid && forceFriendStorySolid && 'close-friend',
     withStorySolid && (realPeer?.hasUnreadStories || forceUnreadStorySolid) && 'has-unread-story',
     onClick && 'interactive',
-    (!isSavedMessages && !imgBlobUrl) && 'no-photo',
+    (!isSavedMessages && !imgUrl) && 'no-photo',
   );
 
-  const hasMedia = Boolean(isSavedMessages || imgBlobUrl);
+  const hasMedia = Boolean(isSavedMessages || imgUrl);
 
   const { handleClick, handleMouseDown } = useFastClick((e: ReactMouseEvent<HTMLDivElement, MouseEvent>) => {
     if (withStory && storyViewerMode !== 'disabled' && realPeer?.hasStories) {
@@ -294,6 +299,7 @@ const Avatar: FC<OwnProps> = ({
       aria-label={typeof content === 'string' ? author : undefined}
       style={buildStyle(`--_size: ${pxSize}px;`, customColor && `--color-user: ${customColor}`)}
       onClick={handleClick}
+      onContextMenu={onContextMenu}
       onMouseDown={handleMouseDown}
     >
       <div className="inner">

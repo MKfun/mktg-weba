@@ -3,7 +3,11 @@ import { getActions, getGlobal, withGlobal } from '../../../global';
 
 import type { ApiChat, ApiMessage, ApiPeer } from '../../../api/types';
 
-import { GENERAL_TOPIC_ID, SERVICE_NOTIFICATIONS_USER_ID, TME_LINK_PREFIX } from '../../../config';
+import {
+  GENERAL_TOPIC_ID,
+  SERVICE_NOTIFICATIONS_USER_ID,
+  TME_LINK_PREFIX,
+} from '../../../config';
 import {
   getMessageInvoice, getMessageText, isChatChannel,
 } from '../../../global/helpers';
@@ -593,7 +597,7 @@ const ActionMessageText = ({
 
       case 'starGiftUnique': {
         const {
-          isTransferred, isUpgrade, savedId, peerId, fromId,
+          isTransferred, isUpgrade, savedId, peerId, fromId, resaleStars, gift,
         } = action;
 
         const isToChannel = Boolean(peerId && savedId);
@@ -601,6 +605,19 @@ const ActionMessageText = ({
         const fromPeer = fromId ? selectPeer(global, fromId) : sender;
         const fromTitle = (fromPeer && getPeerTitle(lang, fromPeer)) || userFallbackText;
         const fromLink = renderPeerLink(fromPeer?.id, fromTitle, asPreview);
+
+        if (resaleStars) {
+          return lang(
+            isOutgoing
+              ? 'ApiMessageMessageActionResaleStarGiftUniqueOutgoing'
+              : 'ApiMessageMessageActionResaleStarGiftUniqueIncoming',
+            {
+              gift: lang('GiftUnique', { title: gift.title, number: gift.number }),
+              stars: renderStrong(formatStarsAsText(lang, resaleStars)),
+            },
+            { withNodes: true },
+          );
+        }
 
         if (isToChannel) {
           const channelPeer = selectPeer(global, peerId!);
@@ -698,6 +715,31 @@ const ActionMessageText = ({
 
       case 'customAction':
         return action.message;
+
+      case 'paidMessagesPrice': {
+        const { stars } = action;
+        if (stars === 0) {
+          return lang('ActionPaidMessageGroupPriceFree');
+        }
+        return lang('ActionPaidMessageGroupPrice', {
+          stars: formatStarsAsText(lang, stars),
+        }, { withNodes: true, withMarkdown: true });
+      }
+
+      case 'paidMessagesRefunded': {
+        const { stars } = action;
+        const user = selectPeer(global, chatId);
+        const userTitle = (user && getPeerTitle(lang, user)) || userFallbackText;
+
+        const key = isOutgoing
+          ? 'ApiMessageActionPaidMessagesRefundedOutgoing'
+          : 'ApiMessageActionPaidMessagesRefundedIncoming';
+
+        return lang(key, {
+          stars: formatStarsAsText(lang, stars),
+          user: renderPeerLink(user?.id, userTitle),
+        }, { withNodes: true, withMarkdown: true });
+      }
 
       case 'phoneCall': // Rendered as a regular message, but considered an action for the summary
         return lang(getCallMessageKey(action, isOutgoing));
