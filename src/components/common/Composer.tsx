@@ -55,6 +55,7 @@ import {
   SCHEDULED_WHEN_ONLINE,
   SEND_MESSAGE_ACTION_INTERVAL,
   SERVICE_NOTIFICATIONS_USER_ID,
+  STARS_CURRENCY_CODE,
 } from '../../config';
 import { requestMeasure, requestNextMutation } from '../../lib/fasterdom/fasterdom';
 import {
@@ -106,6 +107,7 @@ import {
   selectTopicFromMessage,
   selectUser,
   selectUserFullInfo,
+  selectWebPage,
 } from '../../global/selectors';
 import { selectCurrentLimit } from '../../global/selectors/limits';
 import { selectSharedSettings } from '../../global/selectors/sharedState';
@@ -142,6 +144,7 @@ import useGetSelectionRange from '../../hooks/useGetSelectionRange';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useOldLang from '../../hooks/useOldLang';
+import usePrevious from '../../hooks/usePrevious';
 import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
 import useSchedule from '../../hooks/useSchedule';
 import useSendMessageAction from '../../hooks/useSendMessageAction';
@@ -156,6 +159,7 @@ import useDraft from '../middle/composer/hooks/useDraft';
 import useEditing from '../middle/composer/hooks/useEditing';
 import useEmojiTooltip from '../middle/composer/hooks/useEmojiTooltip';
 import useInlineBotTooltip from '../middle/composer/hooks/useInlineBotTooltip';
+import useLoadLinkPreview from '../middle/composer/hooks/useLoadLinkPreview';
 import useMentionTooltip from '../middle/composer/hooks/useMentionTooltip';
 import usePaidMessageConfirmation from '../middle/composer/hooks/usePaidMessageConfirmation';
 import useStickerTooltip from '../middle/composer/hooks/useStickerTooltip';
@@ -822,6 +826,12 @@ const Composer: FC<OwnProps & StateProps> = ({
     setHtml,
     editedMessage: editingMessage,
     isDisabled: isInStoryViewer || Boolean(requestedDraft) || (!hasSuggestedPost && isMonoforum),
+  });
+
+  useLoadLinkPreview({
+    chatId,
+    threadId,
+    getHtml,
   });
 
   const resetComposer = useLastCallback((shouldPreserveInput = false) => {
@@ -1576,7 +1586,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   });
   const handleSuggestPostClick = useLastCallback(() => {
     updateDraftSuggestedPostInfo({
-      price: { amount: 0, nanos: 0 },
+      price: { currency: STARS_CURRENCY_CODE, amount: 0, nanos: 0 },
     });
   });
 
@@ -1874,6 +1884,7 @@ const Composer: FC<OwnProps & StateProps> = ({
   const effectEmoji = areEffectsSupported && effect?.emoticon;
 
   const shouldRenderPaidBadge = Boolean(paidMessagesStars && mainButtonState === MainButtonState.Send);
+  const prevShouldRenderPaidBadge = usePrevious(shouldRenderPaidBadge);
 
   return (
     <div className={fullClassName}>
@@ -2025,8 +2036,7 @@ const Composer: FC<OwnProps & StateProps> = ({
             <WebPagePreview
               chatId={chatId}
               threadId={threadId}
-              getHtml={getHtml}
-              isDisabled={!canAttachEmbedLinks || hasAttachments}
+              isDisabled={!canAttachEmbedLinks || hasAttachments || !hasText}
               isEditing={Boolean(editingMessage)}
             />
           </>
@@ -2358,7 +2368,12 @@ const Composer: FC<OwnProps & StateProps> = ({
         {isInMessageList && <Icon name="schedule" />}
         {isInMessageList && <Icon name="check" />}
         <Button
-          className={buildClassName('paidStarsBadge', shouldRenderPaidBadge && 'visible')}
+          className={buildClassName(
+            'paidStarsBadge',
+            shouldRenderPaidBadge && 'visible',
+            prevShouldRenderPaidBadge && !shouldRenderPaidBadge && 'hiding',
+            !prevShouldRenderPaidBadge && !shouldRenderPaidBadge && 'hidden',
+          )}
           nonInteractive
           size="tiny"
           color="stars"
@@ -2515,6 +2530,8 @@ export default memo(withGlobal<OwnProps>(
     const isAppConfigLoaded = global.isAppConfigLoaded;
     const insertingPeerIdMention = tabState.insertingPeerIdMention;
 
+    const webPagePreview = tabState.webPagePreviewId ? selectWebPage(global, tabState.webPagePreviewId) : undefined;
+
     return {
       availableReactions: global.reactions.availableReactions,
       topReactions: type === 'story' ? global.reactions.topReactions : undefined,
@@ -2586,7 +2603,7 @@ export default memo(withGlobal<OwnProps>(
       quickReplies: global.quickReplies.byId,
       canSendQuickReplies,
       noWebPage,
-      webPagePreview: selectTabState(global).webPagePreview,
+      webPagePreview,
       isContactRequirePremium: userFullInfo?.isContactRequirePremium,
       effect,
       effectReactions,

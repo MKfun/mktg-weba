@@ -11,10 +11,9 @@ import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
 import type { ChatTranslatedMessages } from '../../../types';
 import type { IconName } from '../../../types/icons';
 
-import { CONTENT_NOT_SUPPORTED } from '../../../config';
+import { CONTENT_NOT_SUPPORTED, TON_CURRENCY_CODE } from '../../../config';
 import {
   getMessageIsSpoiler,
-  getMessageMediaHash,
   getMessageRoundVideo,
   isChatChannel,
   isChatGroup,
@@ -26,17 +25,18 @@ import buildClassName from '../../../util/buildClassName';
 import { formatScheduledDateTime } from '../../../util/dates/dateFormat';
 import { isUserId } from '../../../util/entities/ids';
 import freezeWhenClosed from '../../../util/hoc/freezeWhenClosed';
-import { formatStarsAsIcon } from '../../../util/localization/format';
+import { formatStarsAsIcon, formatTonAsIcon } from '../../../util/localization/format';
 import { getPictogramDimensions } from '../helpers/mediaDimensions';
 import renderText from '../helpers/renderText';
 import { renderTextWithEntities } from '../helpers/renderTextWithEntities';
 
+import useMessageMediaHash from '../../../hooks/media/useMessageMediaHash';
+import useThumbnail from '../../../hooks/media/useThumbnail';
 import { useFastClick } from '../../../hooks/useFastClick';
 import { useIsIntersecting } from '../../../hooks/useIntersectionObserver';
 import useLang from '../../../hooks/useLang';
 import useMedia from '../../../hooks/useMedia';
 import useOldLang from '../../../hooks/useOldLang';
-import useThumbnail from '../../../hooks/useThumbnail';
 import useMessageTranslation from '../../middle/message/hooks/useMessageTranslation';
 
 import RippleEffect from '../../ui/RippleEffect';
@@ -64,6 +64,7 @@ type OwnProps = {
   chatTranslations?: ChatTranslatedMessages;
   requestedChatTranslationLanguage?: string;
   isOpen?: boolean;
+  isMediaNsfw?: boolean;
   observeIntersectionForLoading?: ObserveFn;
   observeIntersectionForPlaying?: ObserveFn;
   onClick: ((e: React.MouseEvent) => void);
@@ -88,6 +89,7 @@ const EmbeddedMessage: FC<OwnProps> = ({
   noUserColors,
   chatTranslations,
   requestedChatTranslationLanguage,
+  isMediaNsfw,
   observeIntersectionForLoading,
   observeIntersectionForPlaying,
   onClick,
@@ -109,12 +111,12 @@ const EmbeddedMessage: FC<OwnProps> = ({
   const gif = containedMedia?.content?.video?.isGif ? containedMedia.content.video : undefined;
   const isVideoThumbnail = Boolean(gif && !gif.previewPhotoSizes?.length);
 
-  const mediaHash = containedMedia && getMessageMediaHash(containedMedia, isVideoThumbnail ? 'full' : 'pictogram');
+  const mediaHash = useMessageMediaHash(containedMedia, isVideoThumbnail ? 'full' : 'pictogram');
   const mediaBlobUrl = useMedia(mediaHash, !isIntersecting);
   const mediaThumbnail = useThumbnail(containedMedia);
 
   const isRoundVideo = Boolean(containedMedia && getMessageRoundVideo(containedMedia));
-  const isSpoiler = Boolean(containedMedia && getMessageIsSpoiler(containedMedia));
+  const isSpoiler = Boolean(containedMedia && getMessageIsSpoiler(containedMedia)) || isMediaNsfw;
   const isQuote = Boolean(replyInfo?.type === 'message' && replyInfo.isQuote);
   const replyForwardInfo = replyInfo?.type === 'message' ? replyInfo.replyFrom : undefined;
 
@@ -150,23 +152,34 @@ const EmbeddedMessage: FC<OwnProps> = ({
         return lang('ComposerEmbeddedMessageSuggestedPostDescription');
       }
       const priceText = suggestedPostInfo.price
-        ? formatStarsAsIcon(lang, suggestedPostInfo.price.amount, {
-          className: 'suggested-price-star-icon',
-        })
+        ? (suggestedPostInfo.price.currency === TON_CURRENCY_CODE
+          ? formatTonAsIcon(lang, suggestedPostInfo.price.amount, {
+            className: 'suggested-price-ton-icon',
+            shouldConvertFromNanos: true,
+          })
+          : formatStarsAsIcon(lang, suggestedPostInfo.price.amount, {
+            className: 'suggested-price-star-icon',
+          }))
         : '';
       const scheduleText = suggestedPostInfo.scheduleDate
         ? formatScheduledDateTime(suggestedPostInfo.scheduleDate, lang, oldLang)
         : '';
       if (priceText && !scheduleText) {
-        return lang('TitleSuggestedPostAmountForAnyTime',
-          { amount: priceText },
-          {
-            withNodes: true,
-            withMarkdown: true,
-          });
+        return (
+          <span className="suggested-post-price-wrapper">
+            {
+              lang('TitleSuggestedPostAmountForAnyTime',
+                { amount: priceText },
+                {
+                  withNodes: true,
+                  withMarkdown: true,
+                })
+            }
+          </span>
+        );
       }
       return (
-        <span>
+        <span className="suggested-post-price-wrapper">
           {priceText}
           {scheduleText ? ` • ${scheduleText}` : ''}
         </span>

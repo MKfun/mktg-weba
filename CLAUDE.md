@@ -42,6 +42,25 @@ You are an expert in TypeScript, JavaScript, HTML, SCSS and Teact with deep expe
     // ✅ GOOD - Full type checking
     { field: condition ? value : undefined }
     ```
+  - **IMPORTANT: Use string templates for inline styles** - Always use template literals for style prop:
+    ```typescript
+    // ✅ CORRECT
+    style={`transform: translateX(${value}%)`}
+    
+    // ❌ WRONG
+    style={{ transform: `translateX(${value}%)` }}
+    style={{ '--custom-prop': value } as React.CSSProperties}
+    ```
+  - **IMPORTANT: Font weights in CSS** - Always use existing CSS variables for font-weight. Never use numeric values or custom values.
+    ```scss
+    // ✅ CORRECT
+    font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-bold);
+    
+    // ❌ WRONG
+    font-weight: 600;
+    font-weight: bold;
+    ```
 
 - **Localization & Text Rules:**
   - **ALWAYS** use `lang()` for all text content - never hardcode strings.

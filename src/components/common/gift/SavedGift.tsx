@@ -3,19 +3,24 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { ApiEmojiStatusType, ApiPeer, ApiSavedStarGift } from '../../../api/types';
 
+import { STARS_CURRENCY_CODE, TON_CURRENCY_CODE } from '../../../config';
 import { getHasAdminRight } from '../../../global/helpers';
 import { selectChat, selectPeer, selectUser } from '../../../global/selectors';
+import { IS_TOUCH_ENV } from '../../../util/browser/windowEnvironment.ts';
 import buildClassName from '../../../util/buildClassName';
+import { formatStarsAsIcon, formatTonAsIcon } from '../../../util/localization/format';
 import { CUSTOM_PEER_HIDDEN } from '../../../util/objects/customPeer';
 import { formatIntegerCompact } from '../../../util/textFormat';
 import { getGiftAttributes, getStickerFromGift, getTotalGiftAvailability } from '../helpers/gifts';
 
 import useContextMenuHandlers from '../../../hooks/useContextMenuHandlers';
+import useFlag from '../../../hooks/useFlag.ts';
 import { type ObserveFn } from '../../../hooks/useIntersectionObserver';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 import StickerView from '../../common/StickerView';
+import Button from '../../ui/Button';
 import Menu from '../../ui/Menu';
 import Avatar from '../Avatar';
 import Icon from '../icons/Icon';
@@ -56,18 +61,29 @@ const SavedGift = ({
   const { openGiftInfoModal } = getActions();
 
   const ref = useRef<HTMLDivElement>();
-
   const stickerRef = useRef<HTMLDivElement>();
 
   const lang = useLang();
 
-  const canManage = peerId === currentUserId || hasAdminRights;
+  const [isHover, markHover, unmarkHover] = useFlag();
 
+  const canManage = peerId === currentUserId || hasAdminRights;
   const totalIssued = getTotalGiftAvailability(gift.gift);
   const starGift = gift.gift;
   const starGiftUnique = starGift.type === 'starGiftUnique' ? starGift : undefined;
+
+  const resellPrice = useMemo(() => {
+    if (!starGiftUnique?.resellPrice) return undefined;
+
+    if (starGiftUnique.resaleTonOnly) {
+      return starGiftUnique.resellPrice.find((amount) => amount.currency === TON_CURRENCY_CODE);
+    }
+
+    return starGiftUnique.resellPrice.find((amount) => amount.currency === STARS_CURRENCY_CODE);
+  }, [starGiftUnique]);
+
   const ribbonText = (() => {
-    if (starGiftUnique?.resellPriceInStars) {
+    if (starGiftUnique?.resellPrice) {
       return lang('GiftRibbonSale');
     }
     if (gift.isPinned && starGiftUnique) {
@@ -79,7 +95,7 @@ const SavedGift = ({
     return undefined;
   })();
 
-  const ribbonColor = starGiftUnique?.resellPriceInStars ? 'green' : 'blue';
+  const ribbonColor = starGiftUnique?.resellPrice ? 'green' : 'blue';
 
   const {
     isContextMenuOpen, contextMenuAnchor,
@@ -105,9 +121,10 @@ const SavedGift = ({
 
   const sticker = getStickerFromGift(gift.gift);
 
-  const radialPatternBackdrop = useMemo(() => {
-    const { backdrop, pattern } = getGiftAttributes(gift.gift) || {};
+  const giftAttributes = useMemo(() => getGiftAttributes(gift.gift), [gift.gift]);
+  const { backdrop, pattern } = giftAttributes || {};
 
+  const radialPatternBackdrop = useMemo(() => {
     if (!backdrop || !pattern) {
       return undefined;
     }
@@ -123,18 +140,20 @@ const SavedGift = ({
         patternIcon={pattern.sticker}
       />
     );
-  }, [gift.gift]);
+  }, [backdrop, pattern]);
 
   if (!sticker) return undefined;
 
   return (
     <div
       ref={ref}
-      className={buildClassName(styles.root, 'scroll-item')}
+      className={buildClassName('interactive-gift scroll-item', styles.root)}
       style={style}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMouseDown={handleBeforeContextMenu}
+      onMouseEnter={!IS_TOUCH_ENV ? markHover : undefined}
+      onMouseLeave={!IS_TOUCH_ENV ? unmarkHover : undefined}
     >
       {radialPatternBackdrop}
       {!radialPatternBackdrop && <Avatar className={styles.topIcon} peer={avatarPeer} size="micro" />}
@@ -146,12 +165,13 @@ const SavedGift = ({
       >
         {sticker && (
           <StickerView
-            observeIntersectionForPlaying={observeIntersection}
-            observeIntersectionForLoading={observeIntersection}
             containerRef={stickerRef}
             sticker={sticker}
             size={GIFT_STICKER_SIZE}
+            shouldLoop={isHover}
             shouldPreloadPreview
+            observeIntersectionForPlaying={observeIntersection}
+            observeIntersectionForLoading={observeIntersection}
           />
         )}
 
@@ -160,6 +180,20 @@ const SavedGift = ({
         <div className={styles.hiddenGift}>
           <Icon name="eye-crossed-outline" />
         </div>
+      )}
+      {resellPrice && (
+        <Button
+          className={styles.priceBadge}
+          nonInteractive
+          size="tiny"
+          withSparkleEffect={true}
+          pill
+          fluid
+        >
+          {resellPrice.currency === 'TON'
+            ? formatTonAsIcon(lang, resellPrice.amount, { shouldConvertFromNanos: true, className: styles.star })
+            : formatStarsAsIcon(lang, resellPrice.amount, { asFont: true, className: styles.star })}
+        </Button>
       )}
       {ribbonText && (
         <GiftRibbon

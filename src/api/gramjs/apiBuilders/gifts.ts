@@ -16,6 +16,7 @@ import { numberToHexColor } from '../../../util/colors';
 import { buildApiChatFromPreview } from '../apiBuilders/chats';
 import { addDocumentToLocalDb } from '../helpers/localDb';
 import { buildApiFormattedText } from './common';
+import { buildApiCurrencyAmount } from './payments';
 import { getApiChatIdFromMtpPeer } from './peers';
 import { buildStickerFromDocument } from './symbols';
 import { buildApiUser } from './users';
@@ -24,7 +25,7 @@ export function buildApiStarGift(starGift: GramJs.TypeStarGift): ApiStarGift {
   if (starGift instanceof GramJs.StarGiftUnique) {
     const {
       id, num, ownerId, ownerName, title, attributes, availabilityIssued, availabilityTotal, slug, ownerAddress,
-      giftAddress, resellStars, releasedBy,
+      giftAddress, resellAmount, releasedBy, resaleTonOnly, requirePremium,
     } = starGift;
 
     return {
@@ -40,14 +41,17 @@ export function buildApiStarGift(starGift: GramJs.TypeStarGift): ApiStarGift {
       issuedCount: availabilityIssued,
       slug,
       giftAddress,
-      resellPriceInStars: resellStars?.toJSNumber(),
+      resellPrice: resellAmount && resellAmount.map((amount) => buildApiCurrencyAmount(amount)).filter(Boolean),
       releasedByPeerId: releasedBy && getApiChatIdFromMtpPeer(releasedBy),
+      requirePremium,
+      resaleTonOnly,
     };
   }
 
   const {
     id, limited, stars, availabilityRemains, availabilityTotal, convertStars, firstSaleDate, lastSaleDate, soldOut,
     birthday, upgradeStars, resellMinStars, title, availabilityResale, releasedBy,
+    requirePremium, limitedPerUser, perUserTotal, perUserRemains,
   } = starGift;
 
   addDocumentToLocalDb(starGift.sticker);
@@ -72,6 +76,10 @@ export function buildApiStarGift(starGift: GramJs.TypeStarGift): ApiStarGift {
     resellMinStars: resellMinStars?.toJSNumber(),
     releasedByPeerId: releasedBy && getApiChatIdFromMtpPeer(releasedBy),
     availabilityResale: availabilityResale?.toJSNumber(),
+    requirePremium,
+    limitedPerUser,
+    perUserTotal,
+    perUserRemains,
   };
 }
 

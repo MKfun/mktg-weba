@@ -1,3 +1,4 @@
+import type { STARS_CURRENCY_CODE, TON_CURRENCY_CODE } from '../../config';
 import type { ApiWebDocument } from './bots';
 import type { ApiChat } from './chats';
 import type { ApiFormattedText, ApiSticker, BoughtPaidMedia } from './messages';
@@ -21,6 +22,10 @@ export interface ApiStarGiftRegular {
   resellMinStars?: number;
   releasedByPeerId?: string;
   title?: string;
+  requirePremium?: true;
+  limitedPerUser?: true;
+  perUserTotal?: number;
+  perUserRemains?: number;
 }
 
 export interface ApiStarGiftUnique {
@@ -36,8 +41,10 @@ export interface ApiStarGiftUnique {
   attributes: ApiStarGiftAttribute[];
   slug: string;
   giftAddress?: string;
-  resellPriceInStars?: number;
+  resellPrice?: ApiTypeCurrencyAmount[];
   releasedByPeerId?: string;
+  requirePremium?: true;
+  resaleTonOnly?: true;
 }
 
 export type ApiStarGift = ApiStarGiftRegular | ApiStarGiftUnique;
@@ -153,9 +160,17 @@ export type ApiRequestInputSavedStarGiftChat = {
 };
 export type ApiRequestInputSavedStarGift = ApiRequestInputSavedStarGiftUser | ApiRequestInputSavedStarGiftChat;
 
+export type ApiTypeCurrencyAmount = ApiStarsAmount | ApiTonAmount;
+
 export interface ApiStarsAmount {
+  currency: typeof STARS_CURRENCY_CODE;
   amount: number;
   nanos: number;
+}
+
+export interface ApiTonAmount {
+  currency: typeof TON_CURRENCY_CODE;
+  amount: number;
 }
 
 export interface ApiStarsTransactionPeerUnsupported {
@@ -205,7 +220,7 @@ export interface ApiStarsTransaction {
   id?: string;
   peer: ApiStarsTransactionPeer;
   messageId?: number;
-  stars: ApiStarsAmount;
+  amount: ApiTypeCurrencyAmount;
   isRefund?: true;
   isGift?: true;
   starGift?: ApiStarGift;
@@ -224,6 +239,7 @@ export interface ApiStarsTransaction {
   isGiftUpgrade?: true;
   isGiftResale?: true;
   paidMessages?: number;
+  isPostsSearch?: true;
 }
 
 export interface ApiStarsSubscription {

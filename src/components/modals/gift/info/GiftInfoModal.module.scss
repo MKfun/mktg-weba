@@ -2,6 +2,23 @@
   overflow: hidden;
 }
 
+.checkBox {
+  margin-inline: -1rem;
+}
+
+.checkBoxDescription {
+  display: flex;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.upgradeIcon {
+  transform: rotateX(180deg);
+  margin-left: 0.25rem;
+  font-size: 1.25rem;
+}
+
 .header {
   display: flex;
   flex-direction: column;
@@ -45,12 +62,12 @@
   color: white;
 
   background-color: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(25px);
   outline: none !important;
 }
 
 .giftResalePriceContainer {
   font-size: 0.75rem;
+  backdrop-filter: blur(25px);
 }
 
 .starAmountIcon,

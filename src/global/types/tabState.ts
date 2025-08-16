@@ -36,6 +36,7 @@ import type {
   ApiReceiptRegular,
   ApiSavedGifts,
   ApiSavedStarGift,
+  ApiSearchPostsFlood,
   ApiSponsoredPeer,
   ApiStarGift,
   ApiStarGiftAttribute,
@@ -45,11 +46,11 @@ import type {
   ApiStarsTransaction,
   ApiStarTopupOption,
   ApiSticker,
+  ApiTypeCurrencyAmount,
   ApiTypePrepaidGiveaway,
   ApiTypeStoryView,
   ApiUser,
   ApiVideo,
-  ApiWebPage,
 } from '../../api/types';
 import type { ApiEmojiStatusCollectible } from '../../api/types/users';
 import type { FoldersActions } from '../../hooks/reducers/useFoldersReducer';
@@ -248,10 +249,12 @@ export type TabState = {
     chatId?: string;
     foundTopicIds?: number[];
     sponsoredPeer?: ApiSponsoredPeer;
+    searchFlood?: ApiSearchPostsFlood;
     fetchingStatus?: {
       chats?: boolean;
       messages?: boolean;
       botApps?: boolean;
+      publicPosts?: boolean;
     };
     isClosing?: boolean;
     localResults?: {
@@ -368,7 +371,7 @@ export type TabState = {
     isMuted: boolean;
   };
 
-  webPagePreview?: ApiWebPage;
+  webPagePreviewId?: string;
 
   loadingThread?: {
     loadingChatId: string;
@@ -441,6 +444,16 @@ export type TabState = {
     subscriptionInfo?: ApiChatInviteInfo;
     inputInvoice?: ApiInputInvoice;
     status?: ApiPaymentStatus;
+  };
+
+  priceConfirmModal?: {
+    originalAmount?: number;
+    newAmount?: number;
+    currency: 'TON' | 'XTR';
+    directInfo?: {
+      formId: string;
+      inputInvoice: ApiInputInvoice;
+    };
   };
 
   chatCreation?: {
@@ -629,6 +642,7 @@ export type TabState = {
     isGift?: boolean;
     monthsAmount?: number;
     isSuccess?: boolean;
+    gift?: ApiStarGift;
   };
 
   giveawayModal?: {
@@ -753,6 +767,8 @@ export type TabState = {
     selfDestructAccountDays: number;
   };
 
+  isAgeVerificationModalOpen?: boolean;
+
   paidReactionModal?: {
     chatId: string;
     messageId: number;
@@ -795,6 +811,7 @@ export type TabState = {
       balanceNeeded: number;
       purpose?: string;
     };
+    currency?: ApiTypeCurrencyAmount['currency'];
   };
 
   giftInfoModal?: {

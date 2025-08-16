@@ -1,15 +1,16 @@
-import { memo, useMemo, useRef, useState } from '../../../lib/teact/teact';
-import { getActions } from '../../../global';
+import { memo, useMemo, useRef, useState } from '@teact';
+import { getActions, withGlobal } from '../../../global';
 
-import type {
-  ApiStarGift,
-} from '../../../api/types';
+import type { ApiStarGift, ApiTypeCurrencyAmount } from '../../../api/types';
 
+import { STARS_CURRENCY_CODE, TON_CURRENCY_CODE } from '../../../config';
+import { selectIsCurrentUserPremium } from '../../../global/selectors';
+import { IS_TOUCH_ENV } from '../../../util/browser/windowEnvironment.ts';
 import buildClassName from '../../../util/buildClassName';
-import { formatStarsAsIcon } from '../../../util/localization/format';
-import { getStickerFromGift } from '../../common/helpers/gifts';
-import { getGiftAttributes } from '../../common/helpers/gifts';
+import { formatStarsAsIcon, formatTonAsIcon } from '../../../util/localization/format';
+import { getGiftAttributes, getStickerFromGift } from '../../common/helpers/gifts';
 
+import useFlag from '../../../hooks/useFlag.ts';
 import { type ObserveFn, useOnIntersect } from '../../../hooks/useIntersectionObserver';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -28,34 +29,77 @@ export type OwnProps = {
   isResale?: boolean;
 };
 
+type StateProps = {
+  isCurrentUserPremium?: boolean;
+};
+
 const GIFT_STICKER_SIZE = 90;
 
 function GiftItemStar({
-  gift, observeIntersection, onClick, isResale,
-}: OwnProps) {
-  const { openGiftInfoModal } = getActions();
+  gift, observeIntersection, onClick, isResale, isCurrentUserPremium,
+}: OwnProps & StateProps) {
+  const { openGiftInfoModal, openPremiumModal, showNotification } = getActions();
 
   const ref = useRef<HTMLDivElement>();
   const stickerRef = useRef<HTMLDivElement>();
 
+  function getPriceAmount(amounts?: ApiTypeCurrencyAmount[]) {
+    if (!amounts) return { amount: 0, currency: STARS_CURRENCY_CODE };
+
+    if (gift.type === 'starGiftUnique' && gift.resaleTonOnly) {
+      const tonAmount = amounts.find((amount) => amount.currency === TON_CURRENCY_CODE);
+      if (tonAmount) return tonAmount;
+    }
+
+    const starsAmount = amounts.find((amount) => amount.currency === STARS_CURRENCY_CODE);
+    return starsAmount;
+  }
+
   const lang = useLang();
+
   const [isVisible, setIsVisible] = useState(false);
+  const [isHover, markHover, unmarkHover] = useFlag();
 
   const sticker = getStickerFromGift(gift);
   const isGiftUnique = gift.type === 'starGiftUnique';
   const uniqueGift = isGiftUnique ? gift : undefined;
   const regularGift = !isGiftUnique ? gift : undefined;
 
-  const stars = !isGiftUnique ? regularGift?.stars : uniqueGift?.resellPriceInStars;
+  const priceInfo = !isGiftUnique
+    ? { amount: regularGift?.stars || 0, currency: STARS_CURRENCY_CODE }
+    : getPriceAmount(uniqueGift?.resellPrice);
+  const priceCurrency = priceInfo?.currency || STARS_CURRENCY_CODE;
   const resellMinStars = regularGift?.resellMinStars;
   const priceInStarsAsString = !isGiftUnique && isResale && resellMinStars
-    ? lang.number(resellMinStars) + '+' : stars;
+    ? lang.number(resellMinStars) + '+' : priceInfo?.amount || 0;
   const isLimited = !isGiftUnique && Boolean(regularGift?.isLimited);
   const isSoldOut = !isGiftUnique && Boolean(regularGift?.isSoldOut);
+  const isPremiumRequired = Boolean(gift?.requirePremium);
+  const isUserLimitReached = Boolean(regularGift?.limitedPerUser && !regularGift?.perUserRemains);
+  const perUserTotal = regularGift?.perUserTotal;
 
   const handleGiftClick = useLastCallback(() => {
     if (isSoldOut && !isResale) {
       openGiftInfoModal({ gift });
+      return;
+    }
+
+    if (isUserLimitReached) {
+      showNotification({
+        message: lang('NotificationGiftsLimit', {
+          count: perUserTotal,
+        }, {
+          withMarkdown: true,
+          withNodes: true,
+        }),
+      });
+      return;
+    }
+
+    if (isPremiumRequired && !isCurrentUserPremium) {
+      openPremiumModal({
+        gift,
+      });
       return;
     }
 
@@ -99,6 +143,9 @@ function GiftItemStar({
         />
       );
     }
+    if (isPremiumRequired) {
+      return <GiftRibbon color="orange" text={lang('LimitPremium')} />;
+    }
     if (isResale) {
       return <GiftRibbon color="green" text={lang('GiftRibbonResale')} />;
     }
@@ -109,7 +156,7 @@ function GiftItemStar({
       return <GiftRibbon color="blue" text={lang('GiftLimited')} />;
     }
     return undefined;
-  }, [isGiftUnique, isResale, gift, isSoldOut, isLimited, lang, giftNumber]);
+  }, [isGiftUnique, isResale, gift, isSoldOut, isLimited, lang, giftNumber, isPremiumRequired]);
 
   useOnIntersect(ref, observeIntersection, (entry) => {
     const visible = entry.isIntersecting;
@@ -119,10 +166,18 @@ function GiftItemStar({
   return (
     <div
       ref={ref}
-      className={buildClassName(styles.container, styles.starGift, 'starGiftItem')}
+      className={buildClassName(
+        'interactive-gift',
+        styles.container,
+        styles.starGift,
+        'starGiftItem',
+        isPremiumRequired && styles.premiumRequired,
+      )}
       tabIndex={0}
       role="button"
       onClick={handleGiftClick}
+      onMouseEnter={!IS_TOUCH_ENV ? markHover : undefined}
+      onMouseLeave={!IS_TOUCH_ENV ? unmarkHover : undefined}
     >
       {radialPatternBackdrop}
 
@@ -138,6 +193,7 @@ function GiftItemStar({
             containerRef={stickerRef}
             sticker={sticker}
             size={GIFT_STICKER_SIZE}
+            shouldLoop={isHover}
             shouldPreloadPreview
           />
         )}
@@ -152,11 +208,21 @@ function GiftItemStar({
         pill
         fluid
       >
-        {formatStarsAsIcon(lang, priceInStarsAsString || 0, { asFont: true, className: styles.star })}
+        {priceCurrency === TON_CURRENCY_CODE
+          ? formatTonAsIcon(lang, priceInStarsAsString || 0, { shouldConvertFromNanos: true, className: styles.star })
+          : formatStarsAsIcon(lang, priceInStarsAsString || 0, { asFont: true, className: styles.star })}
       </Button>
       {giftRibbon}
     </div>
   );
 }
 
-export default memo(GiftItemStar);
+export default memo(
+  withGlobal<OwnProps>((global): StateProps => {
+    const isCurrentUserPremium = selectIsCurrentUserPremium(global);
+
+    return {
+      isCurrentUserPremium,
+    };
+  })(GiftItemStar),
+);

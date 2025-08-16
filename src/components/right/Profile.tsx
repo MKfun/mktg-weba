@@ -3,7 +3,7 @@ import {
   memo, useCallback,
   useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
-import { getActions, withGlobal } from '../../global';
+import { getActions, getGlobal, withGlobal } from '../../global';
 
 import type {
   ApiBotPreviewMedia,
@@ -34,7 +34,6 @@ import {
   getIsDownloading,
   getIsSavedDialog,
   getMessageDocument,
-  getMessageDownloadableMedia,
   isChatAdmin,
   isChatChannel,
   isChatGroup,
@@ -48,6 +47,7 @@ import {
   selectChatFullInfo,
   selectChatMessages,
   selectCurrentSharedMediaSearch,
+  selectIsChatRestricted,
   selectIsCurrentUserPremium,
   selectIsRightColumnShown,
   selectMonoforumChannel,
@@ -61,6 +61,7 @@ import {
   selectUserFullInfo,
 } from '../../global/selectors';
 import { selectPremiumLimit } from '../../global/selectors/limits';
+import { selectMessageDownloadableMedia } from '../../global/selectors/media';
 import { selectSharedSettings } from '../../global/selectors/sharedState';
 import { IS_TOUCH_ENV } from '../../util/browser/windowEnvironment';
 import buildClassName from '../../util/buildClassName';
@@ -713,21 +714,23 @@ const Profile: FC<OwnProps & StateProps> = ({
           ))
         ) : resultType === 'voice' ? (
           (viewportIds as number[]).map((id) => {
+            const global = getGlobal();
             const message = messagesById[id];
             if (!message) return undefined;
-            const media = messagesById[id] && getMessageDownloadableMedia(message)!;
+
+            const media = selectMessageDownloadableMedia(global, message)!;
             return messagesById[id] && (
               <Audio
                 key={id}
                 theme={theme}
-                message={messagesById[id]}
-                senderTitle={getSenderName(oldLang, messagesById[id], chatsById, usersById)}
+                message={message}
+                senderTitle={getSenderName(oldLang, message, chatsById, usersById)}
                 origin={AudioOrigin.SharedMedia}
-                date={messagesById[id].date}
+                date={message.date}
                 className="scroll-item"
                 onPlay={handlePlayAudio}
                 onDateClick={handleMessageFocus}
-                canDownload={!isChatProtected && !messagesById[id].isProtected}
+                canDownload={!isChatProtected && !message.isProtected}
                 isDownloading={getIsDownloading(activeDownloads, media)}
               />
             );
@@ -995,6 +998,7 @@ export default memo(withGlobal<OwnProps>(
     const peerGifts = selectTabState(global).savedGifts.giftsByPeerId[chatId];
 
     const monoforumChannel = selectMonoforumChannel(global, chatId);
+    const isRestricted = chat && selectIsChatRestricted(global, chat.id);
 
     return {
       theme: selectTheme(global),
@@ -1012,7 +1016,7 @@ export default memo(withGlobal<OwnProps>(
       canDeleteMembers,
       currentUserId: global.currentUserId,
       isRightColumnShown: selectIsRightColumnShown(global, isMobile),
-      isRestricted: chat?.isRestricted,
+      isRestricted,
       activeDownloads,
       usersById,
       userStatusesById,

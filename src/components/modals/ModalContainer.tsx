@@ -10,6 +10,7 @@ import { pick } from '../../util/iteratees';
 import VerificationMonetizationModal from '../common/VerificationMonetizationModal.async';
 import WebAppsCloseConfirmationModal from '../main/WebAppsCloseConfirmationModal.async';
 import AboutAdsModal from './aboutAds/AboutAdsModal.async';
+import AgeVerificationModal from './ageVerification/AgeVerificationModal.async';
 import AttachBotInstallModal from './attachBotInstall/AttachBotInstallModal.async';
 import BoostModal from './boost/BoostModal.async';
 import ChatInviteModal from './chatInvite/ChatInviteModal.async';
@@ -33,6 +34,7 @@ import MapModal from './map/MapModal.async';
 import OneTimeMediaModal from './oneTimeMedia/OneTimeMediaModal.async';
 import PaidReactionModal from './paidReaction/PaidReactionModal.async';
 import PreparedMessageModal from './preparedMessage/PreparedMessageModal.async';
+import PriceConfirmModal from './priceConfirm/PriceConfirmModal.async';
 import ReportAdModal from './reportAd/ReportAdModal.async';
 import ReportModal from './reportModal/ReportModal.async';
 import SharePreparedMessageModal from './sharePreparedMessage/SharePreparedMessageModal.async';
@@ -88,8 +90,10 @@ type ModalKey = keyof Pick<TabState,
   'giftStatusInfoModal' |
   'giftTransferModal' |
   'chatRefundModal' |
+  'priceConfirmModal' |
   'isFrozenAccountModalOpen' |
-  'deleteAccountModal'
+  'deleteAccountModal' |
+  'isAgeVerificationModalOpen'
 >;
 
 type StateProps = {
@@ -143,8 +147,10 @@ const MODALS: ModalRegistry = {
   sharePreparedMessageModal: SharePreparedMessageModal,
   giftTransferModal: GiftTransferModal,
   chatRefundModal: ChatRefundModal,
+  priceConfirmModal: PriceConfirmModal,
   isFrozenAccountModalOpen: FrozenAccountModal,
   deleteAccountModal: DeleteAccountModal,
+  isAgeVerificationModalOpen: AgeVerificationModal,
 };
 const MODAL_KEYS = Object.keys(MODALS) as ModalKey[];
 const MODAL_ENTRIES = Object.entries(MODALS) as Entries<ModalRegistry>;

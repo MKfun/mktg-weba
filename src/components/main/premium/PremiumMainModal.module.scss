@@ -43,17 +43,15 @@
   @include mixins.adapt-padding-to-scrollbar(0.5rem);
 }
 
-.logo {
-  width: 6.25rem;
-  height: 6.25rem;
-  min-height: 6.25rem;
-  margin: 1rem;
-}
-
 .status-emoji {
   --custom-emoji-size: 8rem;
 
   cursor: var(--custom-cursor, pointer);
+  margin: 1rem;
+}
+
+.sticker-wrapper {
+  position: relative;
   margin: 1rem;
 }
 
@@ -182,4 +180,17 @@
 
 .subscriptionOption {
   margin: 0.8125rem;
+}
+
+.starParticlesHeader,
+.giftParticlesHeader {
+  position: relative !important;
+}
+
+.starParticlesHeader {
+  padding-top: 10rem !important;
+}
+
+.giftParticlesHeader {
+  padding-top: 11rem !important;
 }

@@ -7,7 +7,7 @@ import { buildApiBotApp } from './bots';
 import { buildApiFormattedText, buildApiPhoto } from './common';
 import { buildApiStarGift } from './gifts';
 import { buildTodoItem } from './messageContent';
-import { buildApiStarsAmount } from './payments';
+import { buildApiCurrencyAmount } from './payments';
 import { buildApiPeerId, getApiChatIdFromMtpPeer } from './peers';
 
 const UNSUPPORTED_ACTION: ApiMessageAction = {
@@ -359,6 +359,20 @@ export function buildApiMessageAction(action: GramJs.TypeMessageAction): ApiMess
       transactionId,
     };
   }
+  if (action instanceof GramJs.MessageActionGiftTon) {
+    const {
+      currency, amount, cryptoCurrency, cryptoAmount, transactionId,
+    } = action;
+    return {
+      mediaType: 'action',
+      type: 'giftTon',
+      currency,
+      amount: amount.toJSNumber(),
+      cryptoCurrency,
+      cryptoAmount: cryptoAmount.toJSNumber(),
+      transactionId,
+    };
+  }
   if (action instanceof GramJs.MessageActionPrizeStars) {
     const {
       unclaimed, stars, transactionId, boostPeer, giveawayMsgId,
@@ -404,7 +418,7 @@ export function buildApiMessageAction(action: GramJs.TypeMessageAction): ApiMess
   if (action instanceof GramJs.MessageActionStarGiftUnique) {
     const {
       upgrade, transferred, saved, refunded, gift, canExportAt, transferStars, fromId, peer, savedId,
-      resaleStars,
+      resaleAmount,
     } = action;
 
     const starGift = buildApiStarGift(gift);
@@ -423,7 +437,7 @@ export function buildApiMessageAction(action: GramJs.TypeMessageAction): ApiMess
       fromId: fromId && getApiChatIdFromMtpPeer(fromId),
       peerId: peer && getApiChatIdFromMtpPeer(peer),
       savedId: savedId && buildApiPeerId(savedId, 'user'),
-      resaleStars: resaleStars?.toJSNumber(),
+      resaleAmount: resaleAmount ? buildApiCurrencyAmount(resaleAmount) : undefined,
     };
   }
   if (action instanceof GramJs.MessageActionPaidMessagesPrice) {
@@ -459,7 +473,7 @@ export function buildApiMessageAction(action: GramJs.TypeMessageAction): ApiMess
       isBalanceTooLow: Boolean(balanceTooLow),
       rejectComment,
       scheduleDate,
-      amount: price ? buildApiStarsAmount(price) : undefined,
+      amount: price ? buildApiCurrencyAmount(price) : undefined,
     };
   }
   if (action instanceof GramJs.MessageActionSuggestedPostSuccess) {
@@ -467,7 +481,7 @@ export function buildApiMessageAction(action: GramJs.TypeMessageAction): ApiMess
     return {
       mediaType: 'action',
       type: 'suggestedPostSuccess',
-      amount: buildApiStarsAmount(price),
+      amount: buildApiCurrencyAmount(price),
     };
   }
   if (action instanceof GramJs.MessageActionSuggestedPostRefund) {

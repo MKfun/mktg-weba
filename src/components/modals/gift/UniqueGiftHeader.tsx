@@ -1,22 +1,25 @@
-import type { TeactNode } from '../../../lib/teact/teact';
-import { memo, useMemo } from '../../../lib/teact/teact';
+import type { TeactNode } from '@teact';
+import { memo, useMemo } from '@teact';
 import { getActions } from '../../../global';
 
 import type {
   ApiPeer,
   ApiStarGiftAttributeBackdrop, ApiStarGiftAttributeModel, ApiStarGiftAttributePattern,
-  ApiStarsAmount } from '../../../api/types';
+  ApiTypeCurrencyAmount } from '../../../api/types';
 
 import {
   formatStarsTransactionAmount,
 } from '../../../global/helpers/payments';
+import { IS_TOUCH_ENV } from '../../../util/browser/windowEnvironment.ts';
 import buildClassName from '../../../util/buildClassName';
 import buildStyle from '../../../util/buildStyle';
 
 import { useTransitionActiveKey } from '../../../hooks/animations/useTransitionActiveKey';
+import useFlag from '../../../hooks/useFlag.ts';
 import useLang from '../../../hooks/useLang';
 
 import AnimatedIconFromSticker from '../../common/AnimatedIconFromSticker';
+import Icon from '../../common/icons/Icon';
 import StarIcon from '../../common/icons/StarIcon';
 import RadialPatternBackground from '../../common/profile/RadialPatternBackground';
 import Transition from '../../ui/Transition';
@@ -31,7 +34,7 @@ type OwnProps = {
   subtitle?: TeactNode;
   subtitlePeer?: ApiPeer;
   className?: string;
-  resellPrice?: ApiStarsAmount;
+  resellPrice?: ApiTypeCurrencyAmount;
 };
 
 const STICKER_SIZE = 120;
@@ -51,6 +54,7 @@ const UniqueGiftHeader = ({
   } = getActions();
 
   const lang = useLang();
+  const [isHover, markHover, unmarkHover] = useFlag();
   const activeKey = useTransitionActiveKey([modelAttribute, backdropAttribute, patternAttribute]);
   const subtitleColor = backdropAttribute?.textColor;
 
@@ -72,7 +76,7 @@ const UniqueGiftHeader = ({
     <div className={buildClassName(styles.root, className)}>
       <Transition
         className={styles.transition}
-        slideClassName={styles.transitionSlide}
+        slideClassName={buildClassName('interactive-gift', styles.transitionSlide)}
         activeKey={activeKey}
         direction={1}
         name="zoomBounceSemiFade"
@@ -82,6 +86,9 @@ const UniqueGiftHeader = ({
           className={styles.sticker}
           sticker={modelAttribute.sticker}
           size={STICKER_SIZE}
+          noLoop={!isHover}
+          onMouseEnter={!IS_TOUCH_ENV ? markHover : undefined}
+          onMouseLeave={!IS_TOUCH_ENV ? unmarkHover : undefined}
         />
       </Transition>
       {title && <h1 className={styles.title}>{title}</h1>}
@@ -103,7 +110,8 @@ const UniqueGiftHeader = ({
           <span>
             {formatStarsTransactionAmount(lang, resellPrice)}
           </span>
-          <StarIcon type="gold" size="middle" />
+          {resellPrice.currency === 'XTR' && <StarIcon type="gold" size="middle" />}
+          {resellPrice.currency === 'TON' && <Icon name="toncoin" />}
         </p>
       )}
     </div>
