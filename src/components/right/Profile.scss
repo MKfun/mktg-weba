@@ -7,13 +7,6 @@
   flex-direction: column;
 
   height: 100%;
-  border-top: 1px solid transparent;
-
-  transition: border-top-color 0.2s ease-in-out;
-
-  &.scrolled {
-    border-top-color: var(--color-borders);
-  }
 
   > .profile-info > .ChatInfo {
     grid-area: chat_info;
@@ -47,6 +40,7 @@
 
   .FloatingActionButton {
     z-index: 1;
+
     &.revealed {
       transition-delay: 0.2s;
     }
@@ -87,11 +81,11 @@
 
 .shared-media {
   display: flex;
+  flex: 1;
   flex-direction: column-reverse;
 
   .TabList {
     z-index: 1;
-    top: -1px;
     background: var(--color-background);
   }
 

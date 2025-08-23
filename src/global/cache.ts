@@ -10,7 +10,7 @@ import type { ActionReturnType, GlobalState, SharedState } from './types';
 import { MAIN_THREAD_ID } from '../api/types';
 
 import {
-  ALL_FOLDER_ID,
+  ALL_FOLDER_ID, ANIMATION_LEVEL_DEFAULT,
   ARCHIVED_FOLDER_ID,
   DEBUG,
   DEFAULT_LIMITS,
@@ -34,7 +34,7 @@ import { encryptSession } from '../util/passcode';
 import { onBeforeUnload, throttle } from '../util/schedulers';
 import { hasStoredSession } from '../util/sessions';
 import { addActionHandler, getGlobal } from './index';
-import { INITIAL_GLOBAL_STATE } from './initialState';
+import { INITIAL_GLOBAL_STATE, INITIAL_PERFORMANCE_STATE_MED } from './initialState';
 import { clearGlobalForLockScreen, clearSharedStateForLockScreen } from './reducers';
 import {
   selectChatLastMessageId,
@@ -348,6 +348,12 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
 
   if (!cached.messages.webPageById) {
     cached.messages.webPageById = initialState.messages.webPageById;
+  }
+
+  const cachedSharedSettings = cached.sharedState.settings;
+  if (!cachedSharedSettings.wasAnimationLevelSetManually) {
+    cachedSharedSettings.animationLevel = ANIMATION_LEVEL_DEFAULT;
+    cachedSharedSettings.performance = INITIAL_PERFORMANCE_STATE_MED;
   }
 }
 
