@@ -956,7 +956,7 @@ export async function createGroupChat({
   const missingUsers = invitedUsers.missingInvitees.map(buildApiMissingInvitedUser);
 
   const newChat = (invitedUsers.updates as GramJs.Updates).chats[0];
-  if (!newChat || !(newChat instanceof GramJs.Chat)) {
+  if (!newChat || !(newChat instanceof GramJs.Channel)) {
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.error('Created chat not found', invitedUsers.updates);
