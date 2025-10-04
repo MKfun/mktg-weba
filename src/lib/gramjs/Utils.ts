@@ -185,41 +185,36 @@ export function getDisplayName(entity: Entity) {
  */
 export function getDC(dcId: number, downloadDC = false) {
   // TODO Move to external config
-  return {
-        id: 1,
-        ipAddress: '192.168.1.100',
-        port: 30444,
-      };
   switch (dcId) {
     case 1:
       return {
         id: 1,
-        ipAddress: `zws1${downloadDC ? '-1' : ''}.web.telegram.org`,
-        port: 443,
+        ipAddress: `dc1.mktg.pooziqo.xyz`,
+        port: 30444,
       };
     case 2:
       return {
         id: 2,
-        ipAddress: `zws2${downloadDC ? '-1' : ''}.web.telegram.org`,
-        port: 443,
+        ipAddress: `dc2.mktg.pooziqo.xyz`,
+        port: 30444,
       };
     case 3:
       return {
         id: 3,
-        ipAddress: `zws3${downloadDC ? '-1' : ''}.web.telegram.org`,
-        port: 443,
+        ipAddress: `dc3.mktg.pooziqo.xyz`,
+        port: 30444,
       };
     case 4:
       return {
-        id: 4,
-        ipAddress: `zws4${downloadDC ? '-1' : ''}.web.telegram.org`,
-        port: 443,
+        id: 2,
+        ipAddress: `dc2.mktg.pooziqo.xyz`,
+        port: 30444,
       };
     case 5:
       return {
-        id: 5,
-        ipAddress: `zws5${downloadDC ? '-1' : ''}.web.telegram.org`,
-        port: 443,
+        id: 2,
+        ipAddress: `dc2.mktg.pooziqo.xyz`,
+        port: 30444,
       };
     default:
       throw new Error(`Cannot find the DC with the ID of ${dcId}`);
