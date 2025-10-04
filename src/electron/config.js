@@ -1,11 +1,11 @@
 /* eslint-disable no-template-curly-in-string */
 const config = {
-  productName: 'Telegram A',
+  productName: 'MKTG A',
   artifactName: '${productName}-${arch}.${ext}',
-  appId: 'org.telegram.TelegramA',
+  appId: 'fun.pooziqo.MKTGA',
   extraMetadata: {
     main: './dist/electron.cjs',
-    productName: 'Telegram A',
+    productName: 'MKTG A',
   },
   asarUnpack: [
     'build/Release/electron_drag_click.node',

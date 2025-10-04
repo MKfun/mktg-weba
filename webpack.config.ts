@@ -26,14 +26,14 @@ const {
   IS_PACKAGED_ELECTRON,
 } = process.env;
 
-const DEFAULT_APP_TITLE = `Telegram${APP_ENV !== 'production' ? ' Beta' : ''}`;
+const DEFAULT_APP_TITLE = `MKTG${APP_ENV !== 'production' ? ' Beta' : ''}`;
 
 // GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
 process.env.BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
 
 const {
   BASE_URL,
-  ELECTRON_HOST_URL = 'https://telegram-a-host',
+  ELECTRON_HOST_URL = 'https://mktg-a-host',
   APP_TITLE = DEFAULT_APP_TITLE,
 } = process.env;
 

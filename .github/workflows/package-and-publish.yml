@@ -15,7 +15,7 @@ on:
       - master
 
 env:
-  APP_NAME: Telegram A
+  APP_NAME: MKTG A
 
 jobs:
   electron-release:

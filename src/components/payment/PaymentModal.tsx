@@ -540,7 +540,7 @@ const PaymentModal: FC<OwnProps & StateProps> = ({
         onCloseAnimationEnd={handleModalClose}
       >
         <p>
-          Sorry, Telegram Web A doesn&apos;t support payments with this provider yet.
+          Sorry, MKTG Web A doesn&apos;t support payments with this provider yet.
           {' '}
           <br />
           Please use one of our mobile apps to do this.
