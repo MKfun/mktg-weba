@@ -1,5 +1,8 @@
 # MKTG Web A
 
+Based on [Original Telegram Web A](https://github.com/Ajaxy/telegram-tt) and [MyTelegram WebA](https://github.com/loyldg/mytelegram-weba), the rest of the README is unchanged.
+
+
 This project won the first prize 🥇 at [Telegram Lightweight Client Contest](https://contest.com/javascript-web-3) and now is an official Telegram client available to anyone at [web.telegram.org/a](https://web.telegram.org/a).
 
 According to the original contest rules, it has nearly zero dependencies and is fully based on its own [Teact](https://github.com/Ajaxy/teact) framework (which re-implements React paradigm). It also uses a custom version of [GramJS](https://github.com/gram-js/gramjs) as an MTProto implementation.
