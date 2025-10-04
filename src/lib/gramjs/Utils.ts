@@ -190,31 +190,31 @@ export function getDC(dcId: number, downloadDC = false) {
       return {
         id: 1,
         ipAddress: `dc1.mktg.pooziqo.xyz`,
-        port: 30444,
+        port: 30443,
       };
     case 2:
       return {
         id: 2,
         ipAddress: `dc2.mktg.pooziqo.xyz`,
-        port: 30444,
+        port: 30443,
       };
     case 3:
       return {
         id: 3,
         ipAddress: `dc3.mktg.pooziqo.xyz`,
-        port: 30444,
+        port: 30443,
       };
     case 4:
       return {
         id: 2,
         ipAddress: `dc2.mktg.pooziqo.xyz`,
-        port: 30444,
+        port: 30443,
       };
     case 5:
       return {
         id: 2,
         ipAddress: `dc2.mktg.pooziqo.xyz`,
-        port: 30444,
+        port: 30443,
       };
     default:
       throw new Error(`Cannot find the DC with the ID of ${dcId}`);
