@@ -146,7 +146,7 @@ type PublicMessageLinkBuilderParams = Omit<BuilderParams<PublicMessageLink>, 'is
   single?: string;
 };
 
-const ELIGIBLE_HOSTNAMES = new Set(['t.me', 'telegram.me', 'telegram.dog']);
+const ELIGIBLE_HOSTNAMES = new Set(['mktg.pooziqo.xyz']);
 
 export function isDeepLink(link: string): boolean {
   return Boolean(link.match(RE_TME_LINK) || link.match(RE_TG_LINK));
@@ -180,8 +180,8 @@ function parseDeepLink(url: string) {
     const urlParsed = new URL(correctUrl);
     return parseHttpLink(urlParsed);
   }
-  if (correctUrl.startsWith('tg:')) {
-    const urlToParse = IS_BAD_URL_PARSER ? correctUrl.replace(/^tg:\/\//, 'https://') : correctUrl;
+  if (correctUrl.startsWith('mktg:')) {
+    const urlToParse = IS_BAD_URL_PARSER ? correctUrl.replace(/^mktg:\/\//, 'https://') : correctUrl;
     const urlParsed = new URL(urlToParse);
     return parseTgLink(urlParsed);
   }

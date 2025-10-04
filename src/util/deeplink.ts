@@ -119,13 +119,13 @@ export const processDeepLink = (url: string, linkContext?: LinkContext): boolean
     return false;
   }
 
-  const urlToParse = IS_BAD_URL_PARSER ? url.replace(/^tg:\/\//, 'https://') : url;
+  const urlToParse = IS_BAD_URL_PARSER ? url.replace(/^mktg:\/\//, 'https://') : url;
 
   const {
     protocol, searchParams, hostname,
   } = new URL(urlToParse);
 
-  if (protocol !== 'tg:') return false;
+  if (protocol !== 'mktg:') return false;
 
   const method = hostname as DeepLinkMethod;
   const params = Object.fromEntries(searchParams);

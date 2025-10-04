@@ -10,9 +10,9 @@ export const APP_CODE_NAME = 'A';
 export const APP_NAME = process.env.APP_NAME || `Telegram Web ${APP_CODE_NAME}`;
 export const RELEASE_DATETIME = process.env.RELEASE_DATETIME;
 
-export const PRODUCTION_HOSTNAME = 'web.telegram.org';
-export const PRODUCTION_URL = 'https://web.telegram.org/a';
-export const WEB_VERSION_BASE = 'https://web.telegram.org/'; // Used to redirect to other versions
+export const PRODUCTION_HOSTNAME = 'mktgweb.pooziqo.xyz';
+export const PRODUCTION_URL = 'https://mktgweb.pooziqo.xyz';
+export const WEB_VERSION_BASE = 'https://mktgweb.pooziqo.xyz/'; // Used to redirect to other versions
 export const BASE_URL = process.env.BASE_URL;
 export const ACCOUNT_QUERY = 'account';
 
@@ -308,16 +308,16 @@ export const SUPPORTED_TRANSLATION_LANGUAGES = [
 // eslint-disable-next-line @stylistic/max-len
 export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z][-a-zA-Z0-9]{1,62})\\b([-a-zA-Z0-9()@:%_+.,~#?&/=]*)';
 export const RE_MENTION_TEMPLATE = '(@[\\w\\d_-]+)';
-export const RE_TG_LINK = /^tg:(\/\/)?/i;
-export const RE_TME_LINK = /^(https?:\/\/)?([-a-zA-Z0-9@:%_+~#=]{1,32}\.)?t\.me/i;
-export const RE_TELEGRAM_LINK = /^(https?:\/\/)?telegram\.org\//i;
-export const TME_LINK_PREFIX = 'https://t.me/';
+export const RE_TG_LINK = /^mktg:(\/\/)?/i;
+export const RE_TME_LINK = /^(https?:\/\/)?([-a-zA-Z0-9@:%_+~#=]{1,32}\.)?mktg\.pooziqo\.xyz/i;
+export const RE_TELEGRAM_LINK = /^(https?:\/\/)?mktg\.pooziqo\.xyz\//i;
+export const TME_LINK_PREFIX = 'https://mktg.pooziqo.xyz/';
 export const BOT_FATHER_USERNAME = 'botfather';
 export const USERNAME_PURCHASE_ERROR = 'USERNAME_PURCHASE_AVAILABLE';
 export const MESSAGE_ID_REQUIRED_ERROR = 'MESSAGE_ID_REQUIRED';
 export const PURCHASE_USERNAME = 'auction';
 export const ACCEPTABLE_USERNAME_ERRORS = new Set([USERNAME_PURCHASE_ERROR, 'USERNAME_INVALID']);
-export const TME_WEB_DOMAINS = new Set(['t.me', 'web.t.me', 'a.t.me', 'k.t.me', 'z.t.me']);
+export const TME_WEB_DOMAINS = new Set(['mktg.pooziqo.xyz']);
 export const WEB_APP_PLATFORM = 'weba';
 export const LANG_PACK = 'weba';
 
